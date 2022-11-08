@@ -1,6 +1,10 @@
 ﻿
 // WSChatClient_MFCDlg.h: 头文件
 //
+#include <fstream>
+#define OFFLINE 0
+#define ONLINE 1
+
 
 #pragma once
 
@@ -11,7 +15,13 @@ class CWSChatClientMFCDlg : public CDialogEx
 // 构造
 public:
 	CWSChatClientMFCDlg(CWnd* pParent = nullptr);	// 标准构造函数
-
+	SOCKET s_u;
+	SOCKET s_t ;
+	struct sockaddr_in server,client;
+	int retval ;
+	int user_state ;
+	CStringA send_data;
+	CString last_group_id;
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_WSCHATCLIENT_MFC_DIALOG };
@@ -53,4 +63,19 @@ public:
 	// 公共密钥类
 	CEdit public_key_value;
 	afx_msg void OnIpnFieldchangedIpIdcIpaddress2(NMHDR* pNMHDR, LRESULT* pResult);
+	// FTP服务器的IP地址
+	CIPAddressCtrl server_ip;
+	// 服务器的端口号
+	CEdit server_port;
+protected:
+//	afx_msg LRESULT OnGroupOpr(WPARAM wParam, LPARAM lParam);
+public:
+	afx_msg void OnBnClickedIdcButton2();
+	afx_msg void OnBnClickedGroupIdcButton4();
+	afx_msg void OnBnClickedGroupIdcButton3();
+	afx_msg void OnEnChangeIdcEdit3();
+	CEdit ugroup_id;
+	afx_msg void OnBnClickedFilelistIdcButton7();
+	afx_msg void OnBnClickedFriendlistIdcButton6();
+	afx_msg void OnBnClickedIdcButton5();
 };
