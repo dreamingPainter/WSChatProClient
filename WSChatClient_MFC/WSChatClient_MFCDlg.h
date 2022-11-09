@@ -4,7 +4,18 @@
 #include <fstream>
 #define OFFLINE 0
 #define ONLINE 1
-
+enum PacketEnum
+{
+	TYPE_UNDEF,
+	TYPE_LOGIN,
+	TYPE_MSG_TXT,
+	TYPE_MSG_BIN,
+	TYPE_GRP_BIN_ACK,
+	TYPE_GRP_JOIN,
+	TYPE_GRP_QUIT,
+	TYPE_BIN_GET,
+	TYPE_GRP_LST
+};
 
 #pragma once
 

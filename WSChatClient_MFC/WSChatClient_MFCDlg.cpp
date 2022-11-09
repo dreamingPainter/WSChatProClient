@@ -283,12 +283,17 @@ void CWSChatClientMFCDlg::OnEnChangeIdcEdit1()
 
 }
 
-
+/*登录*/
 void CWSChatClientMFCDlg::OnBnClickedIdcButton1()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	CString input_text;
 	int port{};
+	short int len;
+	unsigned int msg_len;
+	char buf_byte;
+	CStringA long_data;
+	char b4, b3, b2, b1,bh,bl;
 
 
 	UpdateData(TRUE);
@@ -320,6 +325,7 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton1()
 		MessageBox(_T("未填写服务器端口号"));
 		return;
 	}
+	
 	s_u = socket(AF_INET, SOCK_DGRAM, 0);
 	s_t = socket(AF_INET, SOCK_STREAM, 0);
 	server.sin_family = AF_INET;
@@ -332,6 +338,25 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton1()
 		retval = WSAGetLastError();
 		logfile << "Network Error" << retval << endl;
 	}
+	else {
+		//TYPE_LOGIN的用户的登陆报文：type|length|msg|len|username
+		if (!send_data.IsEmpty())
+			send_data.Empty();
+
+		//高地址整数高位，低地址整数低位
+		buf_byte = 0x01;//type
+		send_data = buf_byte;//Add Packet Header
+		msg_len = username_local.GetLength();
+		len = 1 + 4 + msg_len;//msg_l|msg_len_l|data_l
+		bh = HIBYTE(len);
+		bl = LOBYTE(len);
+		buf_byte = 0x01;//msg_type
+		long_data = username_local;
+		send_data = send_data + bl + bh + buf_byte + long_data;//MAKEWORD(b1,bn)
+		sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server));
+	}
+
+
 
 	UpdateData(FALSE);
 	
@@ -345,7 +370,7 @@ void CWSChatClientMFCDlg::OnIpnFieldchangedIpIdcIpaddress1(NMHDR* pNMHDR, LRESUL
 	*pResult = 0;
 }
 
-
+/*用户端IP为环回地址*/
 void CWSChatClientMFCDlg::OnBnClickedIpIdcRadio1()
 {
 	// TODO: 在此添加控件通知处理程序代码
@@ -392,7 +417,7 @@ void CWSChatClientMFCDlg::OnIpnFieldchangedIpIdcIpaddress2(NMHDR* pNMHDR, LRESUL
 //	return 0;
 //}
 
-
+/*服务器设置为环回地址*/
 void CWSChatClientMFCDlg::OnBnClickedIdcButton2()
 {
 	// TODO: 在此添加控件通知处理程序代码
