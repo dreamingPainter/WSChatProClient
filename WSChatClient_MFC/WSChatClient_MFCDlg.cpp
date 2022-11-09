@@ -66,6 +66,7 @@ CWSChatClientMFCDlg::CWSChatClientMFCDlg(CWnd* pParent /*=nullptr*/)
 	user_state = OFFLINE;//0不在线
 	//ugroup_id.SetWindowText(0);
 	send_data = _T("");
+	user_id = 0;
 
 
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
@@ -85,6 +86,8 @@ void CWSChatClientMFCDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, SERVER_PORT_IDC_EDIT4, server_port);
 	//  DDX_Text(pDX, GROUPID_IDC_EDIT3, ugroup_id);
 	DDX_Control(pDX, GROUPID_IDC_EDIT3, ugroup_id);
+	DDX_Control(pDX, FILEPATH_IDC_EDIT2, file_path);
+	DDX_Control(pDX, SELECT_FILE_RECV_COMBO4, file_receiver);
 }
 
 BEGIN_MESSAGE_MAP(CWSChatClientMFCDlg, CDialogEx)
@@ -106,6 +109,9 @@ ON_EN_CHANGE(GROUPID_IDC_EDIT3, &CWSChatClientMFCDlg::OnEnChangeIdcEdit3)
 ON_BN_CLICKED(RENEW_FILELIST_IDC_BUTTON7, &CWSChatClientMFCDlg::OnBnClickedFilelistIdcButton7)
 ON_BN_CLICKED(RENEW_FRIENDLIST_IDC_BUTTON6, &CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6)
 ON_BN_CLICKED(UPLOAD_IDC_BUTTON5, &CWSChatClientMFCDlg::OnBnClickedIdcButton5)
+ON_CBN_SELCHANGE(SELECT_FILE_RECV_COMBO4, &CWSChatClientMFCDlg::OnCbnSelchangeFileRecvCombo4)
+ON_EN_CHANGE(FILEPATH_IDC_EDIT2, &CWSChatClientMFCDlg::OnEnChangeIdcEdit2)
+ON_BN_CLICKED(DOWNLOAD_IDC_BUTTON6, &CWSChatClientMFCDlg::OnBnClickedIdcButton6)
 END_MESSAGE_MAP()
 
 
@@ -334,11 +340,11 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton1()
 	server_port.GetWindowText(input_text);
 	port = _ttoi(input_text);
 	server.sin_port = htons(port);
-	if (connect(s_t, (sockaddr*)&server, sizeof(server))<0) {
+	/*if (connect(s_t, (sockaddr*)&server, sizeof(server))<0) {
 		retval = WSAGetLastError();
 		logfile << "Network Error" << retval << endl;
-	}
-	else {
+	}*/
+	//else {
 		//TYPE_LOGIN的用户的登陆报文：type|length|msg|len|username
 		if (!send_data.IsEmpty())
 			send_data.Empty();
@@ -353,11 +359,11 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton1()
 		buf_byte = 0x01;//msg_type
 		long_data = username_local;
 		send_data = send_data + bl + bh + buf_byte + long_data;//MAKEWORD(b1,bn)
-		sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server));
-	}
-
-
-
+		if (sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
+		{
+			logfile << "_LINE_:send error" << endl;
+		}
+	//}
 	UpdateData(FALSE);
 	
 }
@@ -447,6 +453,16 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton4()
 	// TODO: 在此添加控件通知处理程序代码
 	int len;
 	CString group_id;
+	
+	CString input_text;
+	int port{};
+	short int len;
+	unsigned int msg_len;
+	char buf_byte;
+	CStringA long_data;
+	char b4, b3, b2, b1, bh, bl;
+
+
 	if (s_u == 0 || user_state == 0)
 	{
 		MessageBox(L"未连接服务器");
@@ -461,21 +477,29 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton4()
 		if (!send_data.IsEmpty())
 			send_data.Empty();
 		ugroup_id.GetWindowText(group_id);
-		/* 未完成：加群报文填写
-		
-		
-		
-		
-		*/
+
+		//报文创建
+		if (!send_data.IsEmpty())
+			send_data.Empty();
+
+		//高地址整数高位，低地址整数低位
+		buf_byte = 0x05;//type
+		send_data = buf_byte;//Add Packet Header
+		msg_len = username_local.GetLength();
+		len = 1 ;//type|len|data(group_id)
+		bh = HIBYTE(len);
+		bl = LOBYTE(len);
+		long_data = group_id;
+		send_data = send_data + bl + bh + long_data;//MAKEWORD(b1,bn)
+		sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server));
 
 		// 发送报文
 		len = send_data.GetLength();
-		if (send(s_u, send_data, len, 0)==SOCKET_ERROR)
+		if (sendto(s_u, send_data, len,0, (sockaddr*)&server,sizeof(server))==SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
 		}
 		send_data.Empty();
-
 	}
 
 
@@ -488,6 +512,16 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton3()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	int len;
+	CString group_id;
+
+	CString input_text;
+	int port{};
+	short int len;
+	unsigned int msg_len;
+	char buf_byte;
+	CStringA long_data;
+	char b4, b3, b2, b1, bh, bl;
+
 	if (s_u == 0 || user_state == 0)
 	{
 		MessageBox(L"未连接,退群失败");
@@ -495,17 +529,23 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton3()
 	}
 	else
 	{
-		ugroup_id.SetWindowTextW(L"0");
+		ugroup_id.GetWindowText(group_id);
 		// 创建报文
 		if (!send_data.IsEmpty())
 			send_data.Empty();
-		/*未完成：退群报文填写
 		
-		*/
+		//高地址整数高位，低地址整数低位
+		buf_byte = 0x06;//type
+		send_data = buf_byte;//Add Packet Header
+		len = 1;//type|len|data(group_id)
+		bh = HIBYTE(len);
+		bl = LOBYTE(len);
+		long_data = group_id;
+		send_data = send_data + bl + bh + long_data;//MAKEWORD(b1,bn)
 
 		// 发送报文
 		len = send_data.GetLength();
-		if (send(s_u, send_data, len, 0) == SOCKET_ERROR)
+		if (sendto(s_u, send_data, len, 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
 		}
@@ -558,7 +598,7 @@ void CWSChatClientMFCDlg::OnBnClickedFilelistIdcButton7()
 
 }
 
-
+/*群成员列表*/
 void CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6()
 {
 	// TODO: 在此添加控件通知处理程序代码
@@ -576,6 +616,7 @@ void CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6()
 		/*未完成：获取文件列表报文填写
 
 		*/
+
 
 		// 发送报文
 		len = send_data.GetLength();
@@ -595,29 +636,92 @@ void CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6()
 void CWSChatClientMFCDlg::OnBnClickedIdcButton5()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	int len;
-	CString path;
+	int len,pos;
+	CStringA filename;
+
+	CString input_text;
+	int port{};
+	short int len;
+	unsigned int msg_len;
+	unsigned int buf_int;
+	char buf_byte;
+	CStringA long_data;
+	char b4, b3, b2, b1, bh, bl;
+	short int file_receiver_id;
+
 	if (s_t == 0 || user_state == 0)
 	{
-		MessageBox(L"未连接,无法获取好友列表");
+		MessageBox(L"未连接,无法上传文件");
 		return;
 	}
 	else
 	{	
+		//读取文件名/传输对象
+		file_path.GetWindowText(input_text);
+		pos = input_text.ReverseFind('\\');
+		filename = input_text.Right(input_text.GetLength()-pos+1);//文件名
+		file_receiver.GetWindowText(input_text);
+		long_data = input_text;
+		file_receiver_id = atoi(long_data);//传输对象ID
+
 		// 创建上传请求报文
 		if (~send_data.IsEmpty())
 			send_data.Empty();
-		/*未完成：发送文件
-			
-		*/
+
+		//高地址整数高位，低地址整数低位
+		buf_byte = 0x03;//type
+		send_data = buf_byte;//Add Packet Header
+
+		/*懒得封装成函数了*/
+		len = 4+4+8+2+filename.GetLength();//type|len|from ID 4B|to ID 4B|crc 64 8B|len 2B|file name|
+		bh = HIBYTE(len);
+		bl = LOBYTE(len);
+		send_data = send_data + bl + bh ;//MAKEWORD(b1,bn)
+		bh = HIBYTE(user_id);
+		bl = LOBYTE(user_id);
+		send_data = send_data + bl + bh;
+		bh = HIBYTE(file_receiver_id);
+		bl = LOBYTE(file_receiver_id);
+		send_data = send_data + bl + bh;
+		/*CRC*/
+		len = filename.GetLength();
+		bh = HIBYTE(len);
+		bl = LOBYTE(len);
+		send_data = send_data + bl + bh + filename;//MAKEWORD(b1,bn)
+
 
 		// 发送报文
 		len = send_data.GetLength();
-		if (send(s_u, send_data, len, 0) == SOCKET_ERROR)
+		if (sendto(s_u, send_data, len, 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
 		}
 		send_data.Empty();
 
 	}
+}
+
+
+void CWSChatClientMFCDlg::OnCbnSelchangeFileRecvCombo4()
+{
+	// TODO: 在此添加控件通知处理程序代码
+
+
+}
+
+
+void CWSChatClientMFCDlg::OnEnChangeIdcEdit2()
+{
+	// TODO:  如果该控件是 RICHEDIT 控件，它将不
+	// 发送此通知，除非重写 CDialogEx::OnInitDialog()
+	// 函数并调用 CRichEditCtrl().SetEventMask()，
+	// 同时将 ENM_CHANGE 标志“或”运算到掩码中。
+
+	// TODO:  在此添加控件通知处理程序代码
+}
+
+
+void CWSChatClientMFCDlg::OnBnClickedIdcButton6()
+{
+	// TODO: 在此添加控件通知处理程序代码
 }

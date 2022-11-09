@@ -33,6 +33,7 @@ public:
 	int user_state ;
 	CStringA send_data;
 	CString last_group_id;
+	short int user_id;
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_WSCHATCLIENT_MFC_DIALOG };
@@ -89,4 +90,10 @@ public:
 	afx_msg void OnBnClickedFilelistIdcButton7();
 	afx_msg void OnBnClickedFriendlistIdcButton6();
 	afx_msg void OnBnClickedIdcButton5();
+	afx_msg void OnCbnSelchangeFileRecvCombo4();
+	afx_msg void OnEnChangeIdcEdit2();
+	CEdit file_path;
+	// 文件接收的对象
+	CComboBox file_receiver;
+	afx_msg void OnBnClickedIdcButton6();
 };
