@@ -280,32 +280,40 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 		case FD_READ:
 			if (s == s_u)
 			{	
+				char *ptr;
+				int x;
 				addr_len = sizeof(server);
 				retval = recvfrom(s_u, recv_buf, sizeof(recv_buf), 0, (sockaddr*)&server, &addr_len);
 				type = recv_buf[0] & 0x01;
+				ptr = (char*)malloc(strlen(recv_buf) + 1);
+				strcpy(ptr, recv_buf);
+				//用Postmsg需要解决data如何传递的问题（一堆buf），用SendMSG需要考虑阻塞的问题，考虑用指针
+				//注意释放
 				switch (type) {
 				case TYPE_LOGIN:
-					PostMessage(LOGIN_MSG);
+					PostMessage(LOGIN_MSG,NULL,(LPARAM)(void*)&*ptr);
 					break;
 				case TYPE_MSG_TXT:
-					PostMessage(TXT_MSG);
+					PostMessage(TXT_MSG,NULL, (LPARAM)(void*)&*ptr);
 					break;
 				case TYPE_MSG_BIN_ACK:
-					PostMessage(BIN_ACK_MSG);
+					PostMessage(BIN_ACK_MSG, NULL, (LPARAM)(void*)&*ptr);
 					break;
 				case TYPE_GRP_JOIN:
-					PostMessage(GRP_JOIN_MSG);
+					PostMessage(GRP_JOIN_MSG,NULL, (LPARAM)(void*)&*ptr);
 					break;
 				case TYPE_GRP_QUIT:
-					PostMessage(GRP_QUIT_MSG);
+					PostMessage(GRP_QUIT_MSG, NULL, (LPARAM)(void*)&*ptr);
 					break;
 				case TYPE_BIN_GET:
-					PostMessage(BIN_GET_MSG);
+					PostMessage(BIN_GET_MSG, NULL, (LPARAM)(void*)&*ptr);
 					break;
 				case TYPE_GRP_LST:
-					PostMessage(GRP_LIST_MSG);
+					PostMessage(GRP_LIST_MSG, NULL, (LPARAM)(void*)&*ptr);
 					break;
 				default:
+					free(ptr);
+					memset(recv_buf,0,sizeof(recv_buf));
 					break;
 				}
 
