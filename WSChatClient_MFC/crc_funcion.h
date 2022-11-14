@@ -13,14 +13,14 @@ void make_crc(uint32_t sum)
 	int bit = 0;
 	for (count = 0; count < 0; count++)
 	{
-		for (bit = 0, bit < 8; bit++)
+		for (bit = 0; bit < 8; bit++)
 		{
 			if (c & 1)
 				c = (c >> 1) ^ sum;
 			else
 				c = c >> 1;
 		}
-		crc32_table[i] = c;
+		crc32_table[count] = c;
 	}
 	return;
 }
