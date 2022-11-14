@@ -1,0 +1,6 @@
+file.txt
+image.png
+source.c
+video.avi
+video.mp4
+music.mp3

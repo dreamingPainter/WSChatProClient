@@ -40,6 +40,14 @@
 #define IDC_EDIT8                       1028
 #define SELECT_FILE_RECV_COMBO4         1029
 #define FILE_IDC_LIST1                  1031
+#define UM_SOCK							WM_USER + 0X100
+#define LOGIN_MSG						WM_USER + 0x200
+#define TXT_MSG							WM_USER + 0x201
+#define BIN_ACK_MSG						WM_USER + 0x202
+#define	GRP_JOIN_MSG					WM_USER + 0x203
+#define GRP_QUIT_MSG					WM_USER + 0x204
+#define BIN_GET_MSG						WM_USER + 0x205
+#define GRP_LIST_MSG					WM_USER + 0x206
 
 // Next default values for new objects
 // 

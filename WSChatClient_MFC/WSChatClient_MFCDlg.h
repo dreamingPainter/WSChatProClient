@@ -4,13 +4,14 @@
 #include <fstream>
 #define OFFLINE 0
 #define ONLINE 1
+
 enum PacketEnum
 {
 	TYPE_UNDEF,
 	TYPE_LOGIN,
 	TYPE_MSG_TXT,
 	TYPE_MSG_BIN,
-	TYPE_GRP_BIN_ACK,
+	TYPE_MSG_BIN_ACK,
 	TYPE_GRP_JOIN,
 	TYPE_GRP_QUIT,
 	TYPE_BIN_GET,
@@ -26,13 +27,12 @@ class CWSChatClientMFCDlg : public CDialogEx
 // 构造
 public:
 	CWSChatClientMFCDlg(CWnd* pParent = nullptr);	// 标准构造函数
-	SOCKET s_u;
-	SOCKET s_t ;
 	struct sockaddr_in server,client;
 	int retval ;
 	int user_state ;
 	CStringA send_data;
 	CString last_group_id;
+	char recv_buf[1024];
 	short int user_id;
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
@@ -96,4 +96,19 @@ public:
 	// 文件接收的对象
 	CComboBox file_receiver;
 	afx_msg void OnBnClickedIdcButton6();
+protected:
+	afx_msg LRESULT OnUmSock(WPARAM wParam, LPARAM lParam);
+public:
+//	virtual HRESULT accDoDefaultAction(VARIANT varChild);
+protected:
+	afx_msg LRESULT OnLoginMsg(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnTxtMsg(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnBinAckMsg(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnGrpJoinMsg(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnGrpQuitMsg(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnBinGetMsg(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnGrpListMsg(WPARAM wParam, LPARAM lParam);
 };
+
+void InitResourceOfClient(HWND hwnd);
+void ReleaseClientResource(HWND hwnd);

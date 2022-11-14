@@ -7,6 +7,8 @@
 #include "WSChatClient_MFC.h"
 #include "WSChatClient_MFCDlg.h"
 #include "afxdialogex.h"
+#include "ReceiveMsgProcess.h"
+#include "crc_funcion.h"
 #include <iostream>
 using namespace std;
 #ifdef _DEBUG
@@ -15,7 +17,8 @@ using namespace std;
 
 
 ofstream logfile;
-
+SOCKET s_u;
+SOCKET s_t;
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
@@ -112,6 +115,14 @@ ON_BN_CLICKED(UPLOAD_IDC_BUTTON5, &CWSChatClientMFCDlg::OnBnClickedIdcButton5)
 ON_CBN_SELCHANGE(SELECT_FILE_RECV_COMBO4, &CWSChatClientMFCDlg::OnCbnSelchangeFileRecvCombo4)
 ON_EN_CHANGE(FILEPATH_IDC_EDIT2, &CWSChatClientMFCDlg::OnEnChangeIdcEdit2)
 ON_BN_CLICKED(DOWNLOAD_IDC_BUTTON6, &CWSChatClientMFCDlg::OnBnClickedIdcButton6)
+ON_MESSAGE(UM_SOCK, &CWSChatClientMFCDlg::OnUmSock)
+ON_MESSAGE(LOGIN_MSG, &CWSChatClientMFCDlg::OnLoginMsg)
+ON_MESSAGE(TXT_MSG, &CWSChatClientMFCDlg::OnTxtMsg)
+ON_MESSAGE(BIN_ACK_MSG, &CWSChatClientMFCDlg::OnBinAckMsg)
+ON_MESSAGE(GRP_JOIN_MSG, &CWSChatClientMFCDlg::OnGrpJoinMsg)
+ON_MESSAGE(GRP_QUIT_MSG, &CWSChatClientMFCDlg::OnGrpQuitMsg)
+ON_MESSAGE(BIN_GET_MSG, &CWSChatClientMFCDlg::OnBinGetMsg)
+ON_MESSAGE(GRP_LIST_MSG, &CWSChatClientMFCDlg::OnGrpListMsg)
 END_MESSAGE_MAP()
 
 
@@ -245,25 +256,80 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 {
 	// TODO: 在此添加专用代码和/或调用基类
 	int wmId, wmEvent;
+	int s,addr_len;
+	unsigned int type;
+	HWND hwnd;
+	hwnd = FindWindowA("CWSChatClientMFCDlg", NULL);
 
 	switch (message)
 	{
 	//处理资源启动和释放等
-	case WM_COMMAND:
+	case WM_CREATE:
+		InitResourceOfClient(hwnd);
 		break;
-	//
 	case WM_DESTROY:
+		ReleaseClientResource(hwnd);
+		PostQuitMessage(0);
 		break;
-	//case UM_SOCK:
-	//	break;
+	case UM_SOCK:
+		s = (SOCKET)wParam;
+		wmEvent = LOWORD(lParam);
 
-	//LIST_OPER * 需要一个接收的消息处理函数：接收文件和好友列表 TYPE_GRP_LIST 8
-	//DOWNLOAD_FILE_OPER * 需要一个接收的消息处理函数：接收下载请求的返回报文和文件 7
-	//GROUP_QUIT_OPERA * 需要一个接收的消息处理函数：退群 6
-	//GROUP_JOIN_OPERA * 需要一个接收的消息处理函数：加群 5
-	//PULL_FILE * 需要一个接收的消息处理函数：确定上传 4
-	//MESSAGE_OPER * 需要一个接收的消息处理函数：接收短消息 TYPE_MSG_TXT 2
-	//LOGIN_OPER * 需要一个接收的消息处理函数：接收登录消息 TYPE_LOGIN 1	
+		switch (wmEvent)
+		{
+		case FD_READ:
+			if (s == s_u)
+			{	
+				addr_len = sizeof(server);
+				retval = recvfrom(s_u, recv_buf, sizeof(recv_buf), 0, (sockaddr*)&server, &addr_len);
+				type = recv_buf[0] & 0x01;
+				switch (type) {
+				case TYPE_LOGIN:
+					PostMessage(LOGIN_MSG);
+					break;
+				case TYPE_MSG_TXT:
+					PostMessage(TXT_MSG);
+					break;
+				case TYPE_MSG_BIN_ACK:
+					PostMessage(BIN_ACK_MSG);
+					break;
+				case TYPE_GRP_JOIN:
+					PostMessage(GRP_JOIN_MSG);
+					break;
+				case TYPE_GRP_QUIT:
+					PostMessage(GRP_QUIT_MSG);
+					break;
+				case TYPE_BIN_GET:
+					PostMessage(BIN_GET_MSG);
+					break;
+				case TYPE_GRP_LST:
+					PostMessage(GRP_LIST_MSG);
+					break;
+				default:
+					break;
+				}
+
+				//LIST_OPER * 需要一个接收的消息处理函数：接收文件和好友列表 TYPE_GRP_LIST 8
+				//DOWNLOAD_FILE_OPER * 需要一个接收的消息处理函数：接收下载请求的返回报文和文件 7
+				//GROUP_QUIT_OPERA * 需要一个接收的消息处理函数：退群 6
+				//GROUP_JOIN_OPERA * 需要一个接收的消息处理函数：加群 5
+				//PULL_FILE * 需要一个接收的消息处理函数：确定上传 4
+				//MESSAGE_OPER * 需要一个接收的消息处理函数：接收短消息 TYPE_MSG_TXT 2
+				//LOGIN_OPER * 需要一个接收的消息处理函数：接收登录消息 TYPE_LOGIN 1	
+
+			}
+			else if (s == s_t)
+			{
+
+			}
+			break;
+		case FD_CLOSE:
+			break;
+
+		default:
+			break;
+		}
+	break;
 
 	default:
 		break;
@@ -271,10 +337,11 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 	return CDialogEx::WindowProc(message, wParam, lParam);
 }
 
-
+/*发送短消息*/
 void CWSChatClientMFCDlg::OnBnClickedIdcButton7()
 {
 	// TODO: 在此添加控件通知处理程序代码
+
 }
 
 
@@ -331,9 +398,7 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton1()
 		MessageBox(_T("未填写服务器端口号"));
 		return;
 	}
-	
-	s_u = socket(AF_INET, SOCK_DGRAM, 0);
-	s_t = socket(AF_INET, SOCK_STREAM, 0);
+
 	server.sin_family = AF_INET;
 	server_ip.GetAddress(server.sin_addr.S_un.S_un_b.s_b1, server.sin_addr.S_un.S_un_b.s_b2,
 		server.sin_addr.S_un.S_un_b.s_b3, server.sin_addr.S_un.S_un_b.s_b4);
@@ -422,6 +487,7 @@ void CWSChatClientMFCDlg::OnIpnFieldchangedIpIdcIpaddress2(NMHDR* pNMHDR, LRESUL
 //{
 //	return 0;
 //}
+//}de
 
 /*服务器设置为环回地址*/
 void CWSChatClientMFCDlg::OnBnClickedIdcButton2()
@@ -451,7 +517,6 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton2()
 void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton4()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	int len;
 	CString group_id;
 	
 	CString input_text;
@@ -511,7 +576,6 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton4()
 void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton3()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	int len;
 	CString group_id;
 
 	CString input_text;
@@ -611,7 +675,7 @@ void CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6()
 	else
 	{
 		// 创建报文
-		if (~send_data.IsEmpty())
+		if (!send_data.IsEmpty())
 			send_data.Empty();
 		/*未完成：获取文件列表报文填写
 
@@ -636,7 +700,7 @@ void CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6()
 void CWSChatClientMFCDlg::OnBnClickedIdcButton5()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	int len,pos;
+	int pos;
 	CStringA filename;
 
 	CString input_text;
@@ -665,7 +729,7 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton5()
 		file_receiver_id = atoi(long_data);//传输对象ID
 
 		// 创建上传请求报文
-		if (~send_data.IsEmpty())
+		if (!send_data.IsEmpty())
 			send_data.Empty();
 
 		//高地址整数高位，低地址整数低位
@@ -724,4 +788,101 @@ void CWSChatClientMFCDlg::OnEnChangeIdcEdit2()
 void CWSChatClientMFCDlg::OnBnClickedIdcButton6()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	int pos;
+	CStringA filename;
+
+	CString input_text;
+	int port{};
+	short int len;
+	unsigned int msg_len;
+	unsigned int buf_int;
+	char buf_byte;
+	CStringA long_data;
+	char b4, b3, b2, b1, bh, bl;
+	short int file_receiver_id;
+
+	if (s_t == 0 || user_state == 0)
+	{
+		MessageBox(L"未连接,无法上传文件");
+		return;
+	}
+	else
+	{
+		//读取文件名/传输对象
+		file_path.GetWindowText(input_text);
+		pos = input_text.ReverseFind('\\');
+		filename = input_text.Right(input_text.GetLength() - pos + 1);//文件名
+		file_receiver.GetWindowText(input_text);
+		long_data = input_text;
+		file_receiver_id = atoi(long_data);//传输对象ID
+
+		// 创建上传请求报文
+		if (!send_data.IsEmpty())
+			send_data.Empty();
+
+		//高地址整数高位，低地址整数低位
+		buf_byte = 0x03;//type
+		send_data = buf_byte;//Add Packet Header
+
+		/*懒得封装成函数了*/
+		len = 4 + 4 + 8 + 2 + filename.GetLength();//type|len|from ID 4B|to ID 4B|crc 64 8B|len 2B|file name|
+		bh = HIBYTE(len);
+		bl = LOBYTE(len);
+		send_data = send_data + bl + bh;//MAKEWORD(b1,bn)
+		bh = HIBYTE(user_id);
+		bl = LOBYTE(user_id);
+		send_data = send_data + bl + bh;
+		bh = HIBYTE(file_receiver_id);
+		bl = LOBYTE(file_receiver_id);
+		send_data = send_data + bl + bh;
+		/*CRC*/
+		len = filename.GetLength();
+		bh = HIBYTE(len);
+		bl = LOBYTE(len);
+		send_data = send_data + bl + bh + filename;//MAKEWORD(b1,bn)
+
+
+		// 发送报文
+		len = send_data.GetLength();
+		if (sendto(s_u, send_data, len, 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
+		{
+			logfile << "_LINE_:send error" << endl;
+		}
+		send_data.Empty();
+
+	}
+}
+
+
+afx_msg LRESULT CWSChatClientMFCDlg::OnUmSock(WPARAM wParam, LPARAM lParam)
+{
+	return 0;
+}
+
+void InitResourceOfClient(HWND hwnd) {
+	WSAData wsa;
+	if(WSAStartup(0x101, &wsa)!=0)
+		logfile << "_LINE_:Init error" << endl;
+	if ((s_u = socket(AF_INET, SOCK_DGRAM, 0)) == SOCKET_ERROR)
+	{
+		logfile << "_LINE_:Init error" << endl;
+		MessageBox(hwnd, _T("sock UDP socket() error"),L"client",MB_OK);
+	}
+	if ((s_t = socket(AF_INET, SOCK_STREAM, 0)) == SOCKET_ERROR)
+	{
+		logfile << "_LINE_:Init error" << endl;
+		MessageBox(hwnd, _T("sock TCP socket() error"),L"client",MB_OK);
+	}
+	WSAAsyncSelect(s_u, hwnd, UM_SOCK, FD_READ);
+	WSAAsyncSelect(s_t, hwnd, UM_SOCK, FD_READ);
+
+
+
+}
+
+void ReleaseClientResource(HWND hwnd) {
+	closesocket(s_t);
+	closesocket(s_u);
+	WSACleanup();
+	return;
 }
