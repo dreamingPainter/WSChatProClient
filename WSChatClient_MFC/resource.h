@@ -48,6 +48,8 @@
 #define GRP_QUIT_MSG					WM_USER + 0x204
 #define BIN_GET_MSG						WM_USER + 0x205
 #define GRP_LIST_MSG					WM_USER + 0x206
+#define LOGIN_CHALLENGE_ACK				WM_USER + 0x207
+
 
 // Next default values for new objects
 // 

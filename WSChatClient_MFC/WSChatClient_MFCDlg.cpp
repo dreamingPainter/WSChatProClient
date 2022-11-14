@@ -123,6 +123,7 @@ ON_MESSAGE(GRP_JOIN_MSG, &CWSChatClientMFCDlg::OnGrpJoinMsg)
 ON_MESSAGE(GRP_QUIT_MSG, &CWSChatClientMFCDlg::OnGrpQuitMsg)
 ON_MESSAGE(BIN_GET_MSG, &CWSChatClientMFCDlg::OnBinGetMsg)
 ON_MESSAGE(GRP_LIST_MSG, &CWSChatClientMFCDlg::OnGrpListMsg)
+ON_MESSAGE(LOGIN_CHALLENGE_ACK, &CWSChatClientMFCDlg::OnLoginChallengeAck)
 END_MESSAGE_MAP()
 
 
@@ -558,12 +559,10 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton4()
 		//高地址整数高位，低地址整数低位
 		buf_byte = 0x05;//type
 		send_data = buf_byte;//Add Packet Header
-		msg_len = username_local.GetLength();
-		len = 1 ;//type|len|data(group_id)
+		len = 4 ;//type|len|data(group_id)
 		bh = HIBYTE(len);
 		bl = LOBYTE(len);
-		long_data = group_id;
-		send_data = send_data + bl + bh + long_data;//MAKEWORD(b1,bn)
+		send_data = send_data + bl + bh + long_data;//MAKEWORD(b1,bh)
 		sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server));
 
 		// 发送报文
@@ -643,7 +642,15 @@ void CWSChatClientMFCDlg::OnEnChangeIdcEdit3()
 void CWSChatClientMFCDlg::OnBnClickedFilelistIdcButton7()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	int len;
+	CString group_id;
+
+	CString input_text;
+	int port{};
+	short int len;
+	unsigned int msg_len;
+	char buf_byte;
+	CStringA long_data;
+	char b4, b3, b2, b1, bh, bl;
 	if (s_u == 0 || user_state == 0)
 	{
 		MessageBox(L"未连接,无法获取文件列表");
@@ -654,9 +661,15 @@ void CWSChatClientMFCDlg::OnBnClickedFilelistIdcButton7()
 		// 创建报文
 		if (!send_data.IsEmpty())
 			send_data.Empty();
-		/*未完成：获取文件列表报文填写
 
-		*/
+		buf_byte = 0x08;//type
+		send_data = buf_byte;//Add Packet Header
+		len = 4;//type|len|data(group_id)
+		bh = HIBYTE(len);
+		bl = LOBYTE(len);
+		long_data = group_id;
+		send_data = send_data + bl + bh + long_data;//MAKEWORD(b1,bn)
+
 
 		// 发送报文
 		len = send_data.GetLength();
@@ -674,7 +687,15 @@ void CWSChatClientMFCDlg::OnBnClickedFilelistIdcButton7()
 void CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	int len;
+	CString group_id;
+
+	CString input_text;
+	int port{};
+	short int len;
+	unsigned int msg_len;
+	char buf_byte;
+	CStringA long_data;
+	char b4, b3, b2, b1, bh, bl;
 	if (s_u == 0 || user_state == 0)
 	{
 		MessageBox(L"未连接,无法获取好友列表");
@@ -685,10 +706,14 @@ void CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6()
 		// 创建报文
 		if (!send_data.IsEmpty())
 			send_data.Empty();
-		/*未完成：获取文件列表报文填写
 
-		*/
-
+		buf_byte = 0x08;//type
+		send_data = buf_byte;//Add Packet Header
+		len = 4;//type|len|data(group_id)
+		bh = HIBYTE(len);
+		bl = LOBYTE(len);
+		long_data = group_id;
+		send_data = send_data + bl + bh + long_data;//MAKEWORD(b1,bn)
 
 		// 发送报文
 		len = send_data.GetLength();
@@ -893,4 +918,47 @@ void ReleaseClientResource(HWND hwnd) {
 	closesocket(s_u);
 	WSACleanup();
 	return;
+}
+
+
+afx_msg LRESULT CWSChatClientMFCDlg::OnLoginChallengeAck(WPARAM wParam, LPARAM lParam)
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CString group_id;
+	CString input_text;
+	int port{};
+	short int len;
+	unsigned int msg_len;
+	char buf_byte;
+	CStringA long_data;
+	char b4, b3, b2, b1, bh, bl;
+	if (s_u == 0 || user_state == 0)
+	{
+		MessageBox(L"未连接,无法获取好友列表");
+		return;
+	}
+	else
+	{
+		// 创建报文
+		if (!send_data.IsEmpty())
+			send_data.Empty();
+
+		buf_byte = 0x08;//type
+		send_data = buf_byte;//Add Packet Header
+		len = 4;//type|len|data(group_id)
+		bh = HIBYTE(len);
+		bl = LOBYTE(len);
+		long_data = group_id;
+		send_data = send_data + bl + bh + long_data;//MAKEWORD(b1,bn)
+
+		// 发送报文
+		len = send_data.GetLength();
+		if (send(s_u, send_data, len, 0) == SOCKET_ERROR)
+		{
+			logfile << "_LINE_:send error" << endl;
+		}
+		send_data.Empty();
+
+	}
+	return 0;
 }

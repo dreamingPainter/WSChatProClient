@@ -108,6 +108,7 @@ protected:
 	afx_msg LRESULT OnGrpQuitMsg(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnBinGetMsg(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnGrpListMsg(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnLoginChallengeAck(WPARAM wParam, LPARAM lParam);
 };
 
 void InitResourceOfClient(HWND hwnd);

@@ -25,7 +25,7 @@ void make_crc(uint32_t sum)
 	return;
 }
 
-uint32_t sum32(char *ptr_c,uint32_t *ptr_i)
+uint32_t sum_32(char *ptr_c,uint32_t *ptr_i)
 {
 	uint32_t *ptr,sum;
 	ptr = ptr_i;
@@ -38,7 +38,7 @@ uint32_t sum32(char *ptr_c,uint32_t *ptr_i)
 	return sum;
 }
 
-uint16_t sum16(char* ptr_c, uint16_t* ptr_i)
+uint16_t sum_16(char* ptr_c, uint16_t* ptr_i)
 {
 	uint16_t* ptr, sum;
 	ptr = ptr_i;
@@ -51,13 +51,13 @@ uint16_t sum16(char* ptr_c, uint16_t* ptr_i)
 	return sum;
 }
 
-uint32_t crc32(uint32_t crc,unsigned char *buf,uint32_t size)
+uint32_t crc_32(uint32_t crc,unsigned char *buf,uint32_t size)
 {
 	while (size--)
 		crc = (crc >> 8) ^ (crc32_table[crc ^ *buf++]);
 	return crc;
 }
-uint64_t crc64(uint32_t crc, unsigned char* buf, uint32_t size)
+uint64_t crc_64(uint32_t crc, unsigned char* buf, uint32_t size)
 {
 	while (size--)
 		crc = (crc >> 8) ^ (crc64_table[crc ^ *buf++]);
