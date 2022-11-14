@@ -4,7 +4,7 @@
 //https://blog.csdn.net/weixin_39824033/article/details/117164482
 
 uint32_t crc32_table[256];
-uint32_t crc64_table[256];
+uint16_t crc64_table[256];
 
 void make_crc(uint32_t sum)
 {
@@ -25,23 +25,41 @@ void make_crc(uint32_t sum)
 	return;
 }
 
-uint32_t sum32(char *ptr_c,int *ptr_i)
+uint32_t sum32(char *ptr_c,uint32_t *ptr_i)
 {
-	return 0;
-}
-uint32_t sum64(char* ptr_c, int* ptr_i)
-{
+	uint32_t *ptr,sum;
+	ptr = ptr_i;
 	
+	while (ptr)
+	{
+		sum += *ptr;
+		ptr++;
+	}
+	return sum;
 }
-uint32_t sum32()
-{
 
+uint16_t sum16(char* ptr_c, uint16_t* ptr_i)
+{
+	uint16_t* ptr, sum;
+	ptr = ptr_i;
+
+	while (ptr)
+	{
+		sum += *ptr;
+		ptr++;
+	}
+	return sum;
 }
-uint32_t crc32(int sum,int key)
-{
 
+uint32_t crc32(uint32_t crc,unsigned char *buf,uint32_t size)
+{
+	while (size--)
+		crc = (crc >> 8) ^ (crc32_table[crc ^ *buf++]);
+	return crc;
 }
-uint64_t crc64(int sum,int key)
+uint64_t crc64(uint32_t crc, unsigned char* buf, uint32_t size)
 {
-
+	while (size--)
+		crc = (crc >> 8) ^ (crc64_table[crc ^ *buf++]);
+	return crc;
 }
