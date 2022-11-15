@@ -2,8 +2,17 @@
 // WSChatClient_MFCDlg.h: 头文件
 //
 #include <fstream>
-#define OFFLINE 0
-#define ONLINE 1
+#define OFFLINE				0
+#define ONLINE				1
+#define UM_SOCK				WM_USER+0x100
+#define LOGIN_MSG			WM_USER+0x200
+#define TXT_MSG				WM_USER+0x201
+#define BIN_ACK_MSG			WM_USER+0x202
+#define GRP_JOIN_MSG		WM_USER+0x203
+#define GRP_QUIT_MSG		WM_USER+0x204
+#define BIN_GET_MSG			WM_USER+0x205
+#define GRP_LIST_MSG		WM_USER+0x206
+#define LOGIN_CHALLENGE_ACK WM_USER+0x207
 
 enum PacketEnum
 {
@@ -27,13 +36,14 @@ class CWSChatClientMFCDlg : public CDialogEx
 // 构造
 public:
 	CWSChatClientMFCDlg(CWnd* pParent = nullptr);	// 标准构造函数
-	struct sockaddr_in server,client;
-	int retval ;
+	struct sockaddr_in server,transmmit_channel;
+	uint64_t retval ;
 	int user_state ;
 	CStringA send_data;
 	CString last_group_id;
 	char recv_buf[1024];
 	short int user_id;
+	uint64_t crc64_of_file;
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_WSCHATCLIENT_MFC_DIALOG };
@@ -109,6 +119,16 @@ protected:
 	afx_msg LRESULT OnBinGetMsg(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnGrpListMsg(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT OnLoginChallengeAck(WPARAM wParam, LPARAM lParam);
+public:
+	// 显示点什么
+	CEdit state_of_client;
+	afx_msg void OnEnChangeEdit7();
+	// 用于展示接收和发送的消息
+	CEdit show_txt_buf;
+	// 用户发送的消息
+	CEdit sendt_txt_buf;
+	// 选择发送消息的对象
+	CComboBox message_receiver;
 };
 
 void InitResourceOfClient(HWND hwnd);

@@ -37,18 +37,14 @@
 #define IDC_COMBO3                      1026
 #define SELECT_CHAT_RECV_COMBO3         1026
 #define IDC_EDIT7                       1027
+#define SHOW_TXT                        1027
 #define IDC_EDIT8                       1028
 #define SELECT_FILE_RECV_COMBO4         1029
 #define FILE_IDC_LIST1                  1031
-#define UM_SOCK							WM_USER + 0X100
-#define LOGIN_MSG						WM_USER + 0x200
-#define TXT_MSG							WM_USER + 0x201
-#define BIN_ACK_MSG						WM_USER + 0x202
-#define	GRP_JOIN_MSG					WM_USER + 0x203
-#define GRP_QUIT_MSG					WM_USER + 0x204
-#define BIN_GET_MSG						WM_USER + 0x205
-#define GRP_LIST_MSG					WM_USER + 0x206
-#define LOGIN_CHALLENGE_ACK				WM_USER + 0x207
+#define IDC_EDIT2                       1036
+#define STATEBOX                        1036
+
+
 
 
 // Next default values for new objects
@@ -57,7 +53,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        136
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1035
+#define _APS_NEXT_CONTROL_VALUE         1037
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

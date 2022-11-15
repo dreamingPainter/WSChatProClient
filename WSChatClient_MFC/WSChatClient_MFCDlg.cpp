@@ -1,7 +1,6 @@
 ﻿
 // WSChatClient_MFCDlg.cpp: 实现文件
 //
-
 #include "pch.h"
 #include "framework.h"
 #include "WSChatClient_MFC.h"
@@ -91,6 +90,10 @@ void CWSChatClientMFCDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, GROUPID_IDC_EDIT3, ugroup_id);
 	DDX_Control(pDX, FILEPATH_IDC_EDIT2, file_path);
 	DDX_Control(pDX, SELECT_FILE_RECV_COMBO4, file_receiver);
+	DDX_Control(pDX, STATEBOX, state_of_client);
+	DDX_Control(pDX, SHOW_TXT, show_txt_buf);
+	DDX_Control(pDX, IDC_EDIT8, sendt_txt_buf);
+	DDX_Control(pDX, SELECT_CHAT_RECV_COMBO3, message_receiver);
 }
 
 BEGIN_MESSAGE_MAP(CWSChatClientMFCDlg, CDialogEx)
@@ -124,6 +127,7 @@ ON_MESSAGE(GRP_QUIT_MSG, &CWSChatClientMFCDlg::OnGrpQuitMsg)
 ON_MESSAGE(BIN_GET_MSG, &CWSChatClientMFCDlg::OnBinGetMsg)
 ON_MESSAGE(GRP_LIST_MSG, &CWSChatClientMFCDlg::OnGrpListMsg)
 ON_MESSAGE(LOGIN_CHALLENGE_ACK, &CWSChatClientMFCDlg::OnLoginChallengeAck)
+ON_EN_CHANGE(IDC_EDIT7, &CWSChatClientMFCDlg::OnEnChangeEdit7)
 END_MESSAGE_MAP()
 
 
@@ -160,6 +164,7 @@ BOOL CWSChatClientMFCDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 	public_key_value.SetPasswordChar('*');
+	state_of_client.EnableWindow(FALSE);
 
 	//logfile.open("log.txt", ios::out | ios::ate | ios::trunc);
 	//logfile << "Init Dialog Success" << endl;
@@ -325,12 +330,33 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 				//PULL_FILE * 需要一个接收的消息处理函数：确定上传 4
 				//MESSAGE_OPER * 需要一个接收的消息处理函数：接收短消息 TYPE_MSG_TXT 2
 				//LOGIN_OPER * 需要一个接收的消息处理函数：接收登录消息 TYPE_LOGIN 1	
-
 			}
 			else if (s == s_t)
-			{
-
+			{//写这算了
+				uint64_t crc64 = 0;
+				uint64_t file_len = 0;
+				FILE *file;
+				char *ptr;
+				char file_crc64;
+				//只能拿crc64的值当文件名了，，或者随便取一个，，，者只能下载一个文件，下完要移走改名✔，，或者在维护的文件列表里查
+				//?如何知道文件到底发没发完，这个len是整个原始文件的字节长度，还是报文里数据的字节数目✔，还是比特数目
+ 				retval = recv(s_t, recv_buf, sizeof(recv_buf), 0);
+				ptr = recv_buf+3;
+				file = fopen("Download", "ab+");
+				crc64 = 0x0000000000000000;//8 byte 16F
+				for (int count = 0; count < 8; count++)
+				{
+					crc64 = (crc64 | (*ptr)) << 8;
+					ptr++;
+				}
+				for (int count = 0; count < 8; count++)
+				{
+					file_len = (file_len | (*ptr)) << 8;
+					ptr++;
+				}
+				fwrite(ptr, sizeof(char), file_len, file);
 			}
+			memset(recv_buf, 0, sizeof(recv_buf));
 			break;
 		case FD_CLOSE:
 			break;
@@ -338,6 +364,7 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 		default:
 			break;
 		}
+
 	break;
 
 	default:
@@ -350,7 +377,57 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 void CWSChatClientMFCDlg::OnBnClickedIdcButton7()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	uint32_t fromID, toID;
+	uint16_t len,msg_len;
+	char buf_byte,bl,bh;
+	CStringA input_txt_A,recv_id_A;
+	CString input_txt,recv_id;
+	//获取发送对象
+	fromID = user_id;
+	message_receiver.GetLBText(message_receiver.GetCurSel(), recv_id);
+	recv_id = recv_id_A;
+	toID = atoi(recv_id_A);
+	//获取数据和数据长度
+	sendt_txt_buf.GetWindowText(input_txt);
+	input_txt_A = input_txt;
+	msg_len = input_txt_A.GetLength();
+	len = 8 + 2 + msg_len;
+	//加报头
+	buf_byte = 0x02;
+	send_data = buf_byte;
+	for (int i = 0; i < 2; i++)//0xFFFF 2B len
+	{
+		buf_byte = 0x00 | len;
+		send_data = send_data + buf_byte;
+		len >> 8;
+	}
+	for (int i = 0; i < 4; i++)//0xFFFFFFFF 4B fromid
+	{
+		buf_byte = 0x00 | fromID;
+		send_data = send_data + buf_byte;
+		fromID >> 8;
+	}
+	for (int i = 0; i < 4; i++)//4B toid
+	{
+		buf_byte = 0x00 | toID ;
+		send_data = send_data + buf_byte;
+		toID >> 8;
+	}
+	for (int i = 0; i < 2; i++)//2B msg_len
+	{
+		buf_byte = 0x00 | msg_len;
+		send_data = send_data + buf_byte;
+		msg_len >> 8;
+	}
+	send_data = send_data + input_txt_A;
+	if (sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
+	{
+		logfile << "_LINE_:send error" << endl;
+	}
 
+
+
+	sendt_txt_buf.Clear();
 }
 
 
@@ -746,6 +823,8 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton5()
 	char b4, b3, b2, b1, bh, bl;
 	short int file_receiver_id;
 
+	crc64_of_file = 0;
+
 	if (s_t == 0 || user_state == 0)
 	{
 		MessageBox(L"未连接,无法上传文件");
@@ -961,4 +1040,15 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnLoginChallengeAck(WPARAM wParam, LPARAM l
 
 	}
 	return 0;
+}
+
+
+void CWSChatClientMFCDlg::OnEnChangeEdit7()
+{
+	// TODO:  如果该控件是 RICHEDIT 控件，它将不
+	// 发送此通知，除非重写 CDialogEx::OnInitDialog()
+	// 函数并调用 CRichEditCtrl().SetEventMask()，
+	// 同时将 ENM_CHANGE 标志“或”运算到掩码中。
+
+	// TODO:  在此添加控件通知处理程序代码
 }
