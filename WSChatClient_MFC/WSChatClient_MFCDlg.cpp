@@ -1,6 +1,7 @@
-﻿
+﻿#define _CRT_SECURE_NO_WARNINGS
 // WSChatClient_MFCDlg.cpp: 实现文件
 //
+
 #include "pch.h"
 #include "framework.h"
 #include "WSChatClient_MFC.h"
@@ -13,7 +14,6 @@ using namespace std;
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
-
 
 ofstream logfile;
 SOCKET s_u;
@@ -94,6 +94,7 @@ void CWSChatClientMFCDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, SHOW_TXT, show_txt_buf);
 	DDX_Control(pDX, IDC_EDIT8, sendt_txt_buf);
 	DDX_Control(pDX, SELECT_CHAT_RECV_COMBO3, message_receiver);
+	DDX_Control(pDX, PRIVATE_PWD_IDC_EDIT3, private_pwd);
 }
 
 BEGIN_MESSAGE_MAP(CWSChatClientMFCDlg, CDialogEx)
@@ -164,6 +165,7 @@ BOOL CWSChatClientMFCDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 	public_key_value.SetPasswordChar('*');
+	//private_key_value.SetPasswordChar('*');
 	state_of_client.EnableWindow(FALSE);
 
 	//logfile.open("log.txt", ios::out | ios::ate | ios::trunc);
@@ -292,7 +294,7 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 				retval = recvfrom(s_u, recv_buf, sizeof(recv_buf), 0, (sockaddr*)&server, &addr_len);
 				type = recv_buf[0] & 0x01;
 				ptr = (char*)malloc(strlen(recv_buf) + 1);
-				strcpy(ptr, recv_buf);
+				strcpy(ptr,recv_buf);
 				//用Postmsg需要解决data如何传递的问题（一堆buf），用SendMSG需要考虑阻塞的问题，考虑用指针
 				//注意释放
 				switch (type) {
@@ -344,6 +346,8 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 				ptr = recv_buf+3;
 				file = fopen("Download", "ab+");
 				crc64 = 0x0000000000000000;//8 byte 16F
+
+
 				for (int count = 0; count < 8; count++)
 				{
 					crc64 = (crc64 | (*ptr)) << 8;
@@ -377,7 +381,7 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 void CWSChatClientMFCDlg::OnBnClickedIdcButton7()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	uint32_t fromID, toID;
+	uint32_t fromID, toID, ID_buf;
 	uint16_t len,msg_len;
 	char buf_byte,bl,bh;
 	CStringA input_txt_A,recv_id_A;
@@ -395,30 +399,15 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton7()
 	//加报头
 	buf_byte = 0x02;
 	send_data = buf_byte;
-	for (int i = 0; i < 2; i++)//0xFFFF 2B len
-	{
-		buf_byte = 0x00 | len;
-		send_data = send_data + buf_byte;
-		len >> 8;
-	}
-	for (int i = 0; i < 4; i++)//0xFFFFFFFF 4B fromid
-	{
-		buf_byte = 0x00 | fromID;
-		send_data = send_data + buf_byte;
-		fromID >> 8;
-	}
-	for (int i = 0; i < 4; i++)//4B toid
-	{
-		buf_byte = 0x00 | toID ;
-		send_data = send_data + buf_byte;
-		toID >> 8;
-	}
-	for (int i = 0; i < 2; i++)//2B msg_len
-	{
-		buf_byte = 0x00 | msg_len;
-		send_data = send_data + buf_byte;
-		msg_len >> 8;
-	}
+	//0xFFFF 2B len
+	bit16_data_into_buf(len, &send_data);
+	//0xFFFFFFFF 4B fromid
+	bit32_data_into_buf(toID, &send_data);
+	//4B toid
+	bit32_data_into_buf(toID,&send_data);
+	//2B msg_len
+	bit16_data_into_buf(msg_len, &send_data);
+
 	send_data = send_data + input_txt_A;
 	if (sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
 	{
@@ -509,7 +498,7 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton1()
 		bl = LOBYTE(len);
 		buf_byte = 0x01;//msg_type
 		long_data = username_local;
-		send_data = send_data + bl + bh + buf_byte + long_data;//MAKEWORD(b1,bn)
+		send_data = send_data + bh + bl + buf_byte + long_data;//MAKEWORD(b1,bn)
 		if (sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
@@ -604,15 +593,12 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton4()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	CString group_id;
-	
+	char buf_byte;
 	CString input_text;
 	int port{};
+	uint32_t group_id_uint;
 	short int len;
 	unsigned int msg_len;
-	char buf_byte;
-	CStringA long_data;
-	char b4, b3, b2, b1, bh, bl;
-
 
 	if (s_u == 0 || user_state == 0)
 	{
@@ -621,15 +607,14 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton4()
 	}
 	else
 	{
-		if (last_group_id != "0")
-			MessageBox(L"已在群%s,请先退出", last_group_id);
+		if (last_group_id != 0)
+			MessageBox(L"已在群,请先退出");
 		
 		// 创建报文
 		if (!send_data.IsEmpty())
 			send_data.Empty();
 		ugroup_id.GetWindowText(group_id);
 
-		//报文创建
 		if (!send_data.IsEmpty())
 			send_data.Empty();
 
@@ -637,9 +622,10 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton4()
 		buf_byte = 0x05;//type
 		send_data = buf_byte;//Add Packet Header
 		len = 4 ;//type|len|data(group_id)
-		bh = HIBYTE(len);
-		bl = LOBYTE(len);
-		send_data = send_data + bl + bh + long_data;//MAKEWORD(b1,bh)
+		bit16_data_into_buf(len, &send_data);
+		group_id_uint = atoi(CStringA(group_id));
+		bit32_data_into_buf(group_id_uint, &send_data);
+
 		sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server));
 
 		// 发送报文
@@ -685,11 +671,8 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton3()
 		//高地址整数高位，低地址整数低位
 		buf_byte = 0x06;//type
 		send_data = buf_byte;//Add Packet Header
-		len = 1;//type|len|data(group_id)
-		bh = HIBYTE(len);
-		bl = LOBYTE(len);
-		long_data = group_id;
-		send_data = send_data + bl + bh + long_data;//MAKEWORD(b1,bn)
+		len = 4;//type|len|data(group_id)
+		
 
 		// 发送报文
 		len = send_data.GetLength();
@@ -745,7 +728,7 @@ void CWSChatClientMFCDlg::OnBnClickedFilelistIdcButton7()
 		bh = HIBYTE(len);
 		bl = LOBYTE(len);
 		long_data = group_id;
-		send_data = send_data + bl + bh + long_data;//MAKEWORD(b1,bn)
+		send_data = send_data + bh + bl + long_data;//MAKEWORD(b1,bn)
 
 
 		// 发送报文
@@ -790,7 +773,7 @@ void CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6()
 		bh = HIBYTE(len);
 		bl = LOBYTE(len);
 		long_data = group_id;
-		send_data = send_data + bl + bh + long_data;//MAKEWORD(b1,bn)
+		send_data = send_data + bh + bl + long_data;//MAKEWORD(b1,bn)
 
 		// 发送报文
 		len = send_data.GetLength();
@@ -852,18 +835,18 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton5()
 		len = 4+4+8+2+filename.GetLength();//type|len|from ID 4B|to ID 4B|crc 64 8B|len 2B|file name|
 		bh = HIBYTE(len);
 		bl = LOBYTE(len);
-		send_data = send_data + bl + bh ;//MAKEWORD(b1,bn)
+		send_data = send_data + bh + bl ;//MAKEWORD(b1,bn)
 		bh = HIBYTE(user_id);
 		bl = LOBYTE(user_id);
-		send_data = send_data + bl + bh;
+		send_data = send_data + bh + bl;
 		bh = HIBYTE(file_receiver_id);
 		bl = LOBYTE(file_receiver_id);
-		send_data = send_data + bl + bh;
+		send_data = send_data + bh + bl;
 		/*CRC*/
 		len = filename.GetLength();
 		bh = HIBYTE(len);
 		bl = LOBYTE(len);
-		send_data = send_data + bl + bh + filename;//MAKEWORD(b1,bn)
+		send_data = send_data + bh + bl + filename;//MAKEWORD(b1,bn)
 
 
 		// 发送报文
@@ -940,18 +923,18 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton6()
 		len = 4 + 4 + 8 + 2 + filename.GetLength();//type|len|from ID 4B|to ID 4B|crc 64 8B|len 2B|file name|
 		bh = HIBYTE(len);
 		bl = LOBYTE(len);
-		send_data = send_data + bl + bh;//MAKEWORD(b1,bn)
+		send_data = send_data + bh + bl;//MAKEWORD(b1,bn)
 		bh = HIBYTE(user_id);
 		bl = LOBYTE(user_id);
-		send_data = send_data + bl + bh;
+		send_data = send_data + bh + bl;
 		bh = HIBYTE(file_receiver_id);
 		bl = LOBYTE(file_receiver_id);
-		send_data = send_data + bl + bh;
+		send_data = send_data + bh + bl;
 		/*CRC*/
 		len = filename.GetLength();
 		bh = HIBYTE(len);
 		bl = LOBYTE(len);
-		send_data = send_data + bl + bh + filename;//MAKEWORD(b1,bn)
+		send_data = send_data + bh + bl + filename;//MAKEWORD(b1,bn)
 
 
 		// 发送报文
@@ -1014,7 +997,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnLoginChallengeAck(WPARAM wParam, LPARAM l
 	if (s_u == 0 || user_state == 0)
 	{
 		MessageBox(L"未连接,无法获取好友列表");
-		return;
+		return 0;
 	}
 	else
 	{
@@ -1028,7 +1011,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnLoginChallengeAck(WPARAM wParam, LPARAM l
 		bh = HIBYTE(len);
 		bl = LOBYTE(len);
 		long_data = group_id;
-		send_data = send_data + bl + bh + long_data;//MAKEWORD(b1,bn)
+		send_data = send_data + bh + bl + long_data;//MAKEWORD(b1,bn)
 
 		// 发送报文
 		len = send_data.GetLength();

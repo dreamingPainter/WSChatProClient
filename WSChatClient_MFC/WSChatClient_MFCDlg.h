@@ -1,4 +1,4 @@
-﻿
+﻿#pragma once
 // WSChatClient_MFCDlg.h: 头文件
 //
 #include <fstream>
@@ -40,9 +40,8 @@ public:
 	uint64_t retval ;
 	int user_state ;
 	CStringA send_data;
-	CString last_group_id;
+	uint32_t last_group_id,user_id;
 	char recv_buf[1024];
-	short int user_id;
 	uint64_t crc64_of_file;
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
@@ -129,6 +128,8 @@ public:
 	CEdit sendt_txt_buf;
 	// 选择发送消息的对象
 	CComboBox message_receiver;
+	// 用户密码
+	CEdit private_pwd;
 };
 
 void InitResourceOfClient(HWND hwnd);
