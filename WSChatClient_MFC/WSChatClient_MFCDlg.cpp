@@ -1,15 +1,9 @@
-﻿#define _CRT_SECURE_NO_WARNINGS
-// WSChatClient_MFCDlg.cpp: 实现文件
+﻿// WSChatClient_MFCDlg.cpp: 实现文件
 //
-
 #include "pch.h"
-#include "framework.h"
 #include "WSChatClient_MFC.h"
 #include "WSChatClient_MFCDlg.h"
-#include "afxdialogex.h"
-#include "ReceiveMsgProcess.h"
-#include "crc_funcion.h"
-#include <iostream>
+
 using namespace std;
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -95,6 +89,8 @@ void CWSChatClientMFCDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_EDIT8, sendt_txt_buf);
 	DDX_Control(pDX, SELECT_CHAT_RECV_COMBO3, message_receiver);
 	DDX_Control(pDX, PRIVATE_PWD_IDC_EDIT3, private_pwd);
+	DDX_Control(pDX, MEMBER_IDC_LIST2, member_list_view);
+	DDX_Control(pDX, FILE_IDC_LIST1, file_list_view);
 }
 
 BEGIN_MESSAGE_MAP(CWSChatClientMFCDlg, CDialogEx)
@@ -165,11 +161,18 @@ BOOL CWSChatClientMFCDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 	public_key_value.SetPasswordChar('*');
-	//private_key_value.SetPasswordChar('*');
+	private_pwd.SetPasswordChar('*');
+	//宽400 高142 member_list_view
+	//宽326 高326 file_list_view
+	member_list_view.InsertColumn(0, _T("成员ID"), LVCFMT_LEFT, 100);
+	member_list_view.InsertColumn(1, _T("成员昵称"), LVCFMT_LEFT, 300);
+	file_list_view.InsertColumn(0, _T("文件ID"), LVCFMT_LEFT, 100);
+	file_list_view.InsertColumn(1, _T("文件名"), LVCFMT_LEFT, 226);
 	state_of_client.EnableWindow(FALSE);
 
-	//logfile.open("log.txt", ios::out | ios::ate | ios::trunc);
-	//logfile << "Init Dialog Success" << endl;
+
+	logfile.open("log.txt", ios::out | ios::ate | ios::trunc);
+	logfile << "Init Dialog Success" << endl;
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -289,7 +292,6 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 			if (s == s_u)
 			{	
 				char *ptr;
-				int x;
 				addr_len = sizeof(server);
 				retval = recvfrom(s_u, recv_buf, sizeof(recv_buf), 0, (sockaddr*)&server, &addr_len);
 				type = recv_buf[0] & 0x01;
@@ -383,9 +385,10 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton7()
 	// TODO: 在此添加控件通知处理程序代码
 	uint32_t fromID, toID, ID_buf;
 	uint16_t len,msg_len;
-	char buf_byte,bl,bh;
+	char buf_byte;
 	CStringA input_txt_A,recv_id_A;
 	CString input_txt,recv_id;
+	send_data.Empty();
 	//获取发送对象
 	fromID = user_id;
 	message_receiver.GetLBText(message_receiver.GetCurSel(), recv_id);
@@ -414,8 +417,6 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton7()
 		logfile << "_LINE_:send error" << endl;
 	}
 
-
-
 	sendt_txt_buf.Clear();
 }
 
@@ -441,7 +442,7 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton1()
 	unsigned int msg_len;
 	char buf_byte;
 	CStringA long_data;
-	char b4, b3, b2, b1,bh,bl;
+	char bh,bl;
 
 
 	UpdateData(TRUE);
@@ -654,7 +655,6 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton3()
 	unsigned int msg_len;
 	char buf_byte;
 	CStringA long_data;
-	char b4, b3, b2, b1, bh, bl;
 
 	if (s_u == 0 || user_state == 0)
 	{
@@ -710,7 +710,7 @@ void CWSChatClientMFCDlg::OnBnClickedFilelistIdcButton7()
 	unsigned int msg_len;
 	char buf_byte;
 	CStringA long_data;
-	char b4, b3, b2, b1, bh, bl;
+	char bh, bl;
 	if (s_u == 0 || user_state == 0)
 	{
 		MessageBox(L"未连接,无法获取文件列表");
@@ -755,7 +755,7 @@ void CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6()
 	unsigned int msg_len;
 	char buf_byte;
 	CStringA long_data;
-	char b4, b3, b2, b1, bh, bl;
+	char bh, bl;
 	if (s_u == 0 || user_state == 0)
 	{
 		MessageBox(L"未连接,无法获取好友列表");
@@ -799,11 +799,9 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton5()
 	CString input_text;
 	int port{};
 	short int len;
-	unsigned int msg_len;
-	unsigned int buf_int;
 	char buf_byte;
 	CStringA long_data;
-	char b4, b3, b2, b1, bh, bl;
+	char bh, bl;
 	short int file_receiver_id;
 
 	crc64_of_file = 0;
@@ -889,11 +887,9 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton6()
 	CString input_text;
 	int port{};
 	short int len;
-	unsigned int msg_len;
-	unsigned int buf_int;
 	char buf_byte;
 	CStringA long_data;
-	char b4, b3, b2, b1, bh, bl;
+	char bh, bl;
 	short int file_receiver_id;
 
 	if (s_t == 0 || user_state == 0)
@@ -990,10 +986,9 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnLoginChallengeAck(WPARAM wParam, LPARAM l
 	CString input_text;
 	int port{};
 	short int len;
-	unsigned int msg_len;
 	char buf_byte;
 	CStringA long_data;
-	char b4, b3, b2, b1, bh, bl;
+	char bh, bl;
 	if (s_u == 0 || user_state == 0)
 	{
 		MessageBox(L"未连接,无法获取好友列表");
@@ -1024,6 +1019,351 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnLoginChallengeAck(WPARAM wParam, LPARAM l
 	}
 	return 0;
 }
+
+
+afx_msg LRESULT CWSChatClientMFCDlg::OnLoginMsg(WPARAM wParam, LPARAM lParam)
+{
+	char* ptr_header, * ptr, buf_byte;
+	unsigned char msg_type;
+	uint32_t sum32, crc32_value;
+	CStringA user_key;
+	CString input_text;
+	unsigned char buf[50];
+
+	ptr_header = (char*)(void*)lParam;
+	ptr = ptr_header;
+	ptr += 3;
+	msg_type = *(ptr);
+	ptr++;
+	switch (msg_type)
+	{
+	case 0x00://no such user
+		MessageBox(L"no such user");
+		break;
+	case 0x01://challenge,又忘记了
+		sum32 = calculate_chllenge_sum(ptr);
+		private_pwd.GetWindowText(input_text);
+		memcpy(buf, input_text.GetBuffer(input_text.GetLength()), input_text.GetLength());
+		crc32_value = crc32_function(buf, input_text.GetLength(), sum32);
+
+		send_data.Empty();
+		//0x01 LOGIN 1B
+		buf_byte = 0x01;
+		//len 2B
+		bit16_data_into_buf(0x03, &send_data);
+		//msg_type
+		bit16_data_into_buf(0x01, &send_data);
+		//32 crc
+		bit32_data_into_buf(crc32_value, &send_data);
+		if (sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
+		{
+			logfile << "_LINE_:send error" << endl;
+		}
+		break;
+	case 0x02:
+		user_id = *(uint32_t*)ptr;
+		user_id = ntohl(user_id);
+		break;
+	case 0x03:
+		MessageBox(L"login failed");
+		break;
+	default:
+		break;
+	}
+	free(ptr_header);
+	return 0;
+}
+
+
+afx_msg LRESULT CWSChatClientMFCDlg::OnTxtMsg(WPARAM wParam, LPARAM lParam)
+{
+	char* ptr_header, * ptr, show_buf[2048];
+	ptr_header = (char*)(void*)lParam;
+	ptr = ptr_header;
+	uint32_t fromID, toID;
+	uint16_t len;
+	CString show_txt;
+
+	ptr = ptr + 3;
+
+	for (int i = 0; i < 4; i++)
+	{
+		fromID = *ptr | 0x00;
+		fromID = fromID << 8;
+		ptr++;
+	}
+	for (int i = 0; i < 4; i++)
+	{
+		toID = *ptr | 0x00;
+		toID = toID << 8;
+		ptr++;
+	}
+	//strcpy(show_buf,ptr);
+	show_txt = "Me";
+	show_txt = show_buf + '\r\n';
+	show_txt_buf.SetSel(show_txt_buf.GetWindowTextLength(), show_txt_buf.GetWindowTextLengthW());
+	show_txt_buf.ReplaceSel(show_txt);
+	show_txt_buf.LineScroll(show_txt_buf.GetLineCount());
+	free(ptr_header);//https://blog.51cto.com/u_15127700/3727200
+	return 0;
+}
+
+
+/*收到ACK后，开始进行文件传输即上传*/
+afx_msg LRESULT CWSChatClientMFCDlg::OnBinAckMsg(WPARAM wParam, LPARAM lParam)
+{
+
+	char* ptr_header, * ptr, sendbuf[1024], buf_byte;
+	ptr_header = (char*)(void*)lParam;
+	ptr = ptr_header;
+	FILE* fp;
+	int pos;
+	uint16_t len;
+	uint64_t retval_file_len;
+	CStringA filename, string_crc64, msg_header;
+	CString input_text;
+	//读取文件名/传输对象
+	file_path.GetWindowText(input_text);
+	pos = input_text.ReverseFind('\\');
+	filename = input_text.Right(input_text.GetLength() - pos + 1);//文件名
+
+
+	//锁定窗口，减少bug和代码量
+	file_path.EnableWindow(FALSE);
+	state_of_client.SetWindowTextW(L"文件上传中，暂时无法进行其他操作");
+	fp = fopen(filename, "r");
+
+	//添加最外层头部
+	send_data.Empty();
+	buf_byte = 0x04;
+	send_data = buf_byte;
+	for (int i = 0; i < 8; i++)//crc64
+	{
+		buf_byte = crc64_of_file | 0x00;
+		crc64_of_file >> 8;
+		msg_header = msg_header + buf_byte;
+	}
+	//其实可以对文件的状态进行管理，每次判断状态（不想写了，堵着吧先
+	do {
+		retval_file_len = fread(sendbuf, sizeof(char), sizeof(sendbuf), fp);
+		retval = retval_file_len;
+		for (int i = 0; i < 8; i++)//数据长度
+		{
+			buf_byte = retval_file_len | 0x00;
+			retval_file_len = retval_file_len >> 8;
+			msg_header = msg_header + buf_byte;
+		};
+		len = retval + 8;
+		for (int i = 0; i < 8; i++)//数据长度
+		{
+			buf_byte = retval_file_len | 0x00;
+			retval_file_len = retval_file_len >> 8;
+			send_data = send_data + buf_byte;
+		};
+		sendbuf[strlen(sendbuf) + 1] = '\0';
+		send_data = send_data + msg_header + sendbuf;
+		//send(s_t, send_data, strlen(send_data) + 1, 0);
+	} while (retval < sizeof(sendbuf));
+
+
+
+	return 0;
+}
+
+
+afx_msg LRESULT CWSChatClientMFCDlg::OnGrpJoinMsg(WPARAM wParam, LPARAM lParam)
+{
+	char* ptr_header, * ptr;
+	ptr_header = (char*)(void*)lParam;
+	ptr = ptr_header;
+	unsigned char group_id[4], msg_type;
+	int count;
+
+	ptr += 3;
+	for (count = 0; count < 4; count++)
+	{
+		last_group_id += *ptr;
+		ptr++;
+	}
+	msg_type = *ptr;
+	if (msg_type == 0x00)
+	{
+		//ugroup_id.SetWindowTextW(last_group_id);
+		ugroup_id.EnableWindow(FALSE);
+	}
+	else {
+		MessageBox(L"Join group Failed");
+	}
+
+	return 0;
+}
+
+
+afx_msg LRESULT CWSChatClientMFCDlg::OnGrpQuitMsg(WPARAM wParam, LPARAM lParam)
+{
+	char* ptr_header, * ptr;
+	ptr_header = (char*)(void*)lParam;
+	ptr = ptr_header;
+	unsigned char group_id[4], msg_type;
+	int count;
+
+	ptr += 3;
+	for (count = 0; count < 4; count++)
+	{
+		last_group_id += *ptr;
+		ptr++;
+	}
+	msg_type = *ptr;
+	if (msg_type == 0x00)
+	{
+		ugroup_id.Clear();
+		ugroup_id.EnableWindow(TRUE);
+	}
+	else {
+		MessageBox(L"Quit group Failed");
+	}
+
+	return 0;
+}
+
+/*收到下载文件的消息*/
+afx_msg LRESULT CWSChatClientMFCDlg::OnBinGetMsg(WPARAM wParam, LPARAM lParam)
+{	//CRC64 8B|port 2B|
+	char* ptr_header, * ptr;
+	ptr_header = (char*)(void*)lParam;
+	ptr = ptr_header;
+	ptr += 3;
+	uint64_t crc64;
+	uint16_t port;
+	crc64 = 0x0000000000000000;//8 byte 16F
+	for (int count = 0; count < 8; count++)
+	{
+		crc64 = (crc64 | (*ptr)) << 8;
+		ptr++;
+	}
+	port = 0x00000000 | (*ptr);
+	port = (port << 8) | *(++ptr);
+	if (port == 0)
+		MessageBox(L"Get file failed");
+	else {
+		transmmit_channel.sin_family = AF_INET;
+		transmmit_channel.sin_port = port;
+		transmmit_channel.sin_addr = server.sin_addr;
+		//if (connect(s_t, (sockaddr*)&transmmit_channel, sizeof(transmmit_channel)) == SOCKET_ERROR)
+		//	MessageBox(L"Receive preparation failed");
+
+	}
+	free(ptr_header);
+	return 0;
+}
+
+//列表
+afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
+{
+	//type 1B|len 2B|msg_type 1B|group id 4B|itemlen 2B|id of item 8B|len 1B|username/filename
+	char* ptr_header, * ptr;
+	char buf[256];
+	ofstream fp;
+	ifstream fp_in;
+	unsigned char type;
+	uint32_t group_id,line;
+	uint16_t item_num,pos;
+	CString item;
+
+	line = 1;
+	ptr_header = (char*)(void*)lParam;
+	ptr = ptr_header;
+	ptr += 3;
+	//type
+	type = *(ptr);
+	ptr++;
+	//group_id
+	group_id = ntohl(*(uint32_t*)ptr);
+	//item_len
+	ptr += 4;
+	item_num = *(uint16_t*)ptr;
+	ptr += 2;
+	//report：https://blog.csdn.net/to_Baidu/article/details/61428276
+	if (group_id == last_group_id)
+	{
+		switch (type)
+		{
+		case 0x00://member_list
+			fp.open("member_list.txt", ios::trunc | ios::out | ios::in);
+			for (int i = 0; i < item_num; i++)
+			{	
+				uint64_t member_id = ntohll(*(uint64_t*)ptr);
+				ptr += 8;
+				uint8_t len = *(uint8_t*)ptr;
+				ptr++;
+				for (int count = 0; count < len; count++)
+				{
+					buf[count] = *ptr;
+					ptr++;
+				}
+				fp << member_id << "\t\t" << buf << endl;
+				memset(buf, 0, sizeof(buf));
+			}
+			fp.close();
+
+			member_list_view.DeleteAllItems();
+			fp_in.open("member_list.txt", ios::in);
+			while (fp_in.getline(buf, 26))
+			{
+				item = buf;
+				pos = item.ReverseFind('\t');
+				CString s_member_id = item.Left(pos);
+				CString s_member_name = item.Right(pos);
+				member_list_view.InsertItem(line,s_member_id);
+				member_list_view.SetItemText(line, 1, s_member_name);
+				memset(buf, 0, 256);
+				line++;
+			}
+			fp_in.close();
+			break;
+		case 0x01://file_list
+			fp.open("file_list.txt", ios::trunc | ios::out| ios::in);
+			for (int i = 0; i < item_num; i++)
+			{
+				uint64_t file_id = ntohll(*(uint64_t*)ptr);
+				ptr += 8;
+				uint8_t len = *(uint8_t*)ptr;
+				ptr++;
+				for (int count = 0; count < len; count++)
+				{
+					buf[count] = *ptr;
+					ptr++;
+				}
+				fp << file_id << "\t\t" << buf << endl;
+				memset(buf, 0, sizeof(buf));
+			}
+			file_list_view.DeleteAllItems();
+			fp.close();
+
+			file_list_view.DeleteAllItems();
+			fp_in.open("file_list.txt", ios::in);
+			while (fp_in.getline(buf, 26))
+			{
+				item = buf;
+				pos = item.ReverseFind('\t');
+				CString s_file_id = item.Left(pos);
+				CString s_file_name = item.Right(pos);
+				file_list_view.InsertItem(line,s_file_id);
+				file_list_view.SetItemText(line, 1, s_file_name);
+				memset(buf, 0, 256);
+				line++;
+			}
+			fp_in.close();
+			break;
+		default:
+			break;
+		}
+	}
+	else MessageBox(L"Get wrong List!");
+	free(ptr);
+	return 0;
+}
+
 
 
 void CWSChatClientMFCDlg::OnEnChangeEdit7()

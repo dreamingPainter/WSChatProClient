@@ -33,6 +33,9 @@
     <ClInclude Include="pch.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="crc_function.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="WSChatClient_MFC.cpp">
@@ -42,6 +45,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="int_put_into_CString.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="crc_function.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -64,5 +73,7 @@
     <Text Include="log.txt">
       <Filter>源文件</Filter>
     </Text>
+    <Text Include="member_list.txt" />
+    <Text Include="file_list.txt" />
   </ItemGroup>
 </Project>

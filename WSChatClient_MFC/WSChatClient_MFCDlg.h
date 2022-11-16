@@ -1,7 +1,15 @@
 ﻿#pragma once
 // WSChatClient_MFCDlg.h: 头文件
 //
+#include "afxdialogex.h"
+#include <iostream>
 #include <fstream>
+#include "ReceiveMsgProcess.h"
+#include "crc_function.h"
+#include "pch.h"
+#include "framework.h"
+#include "int_put_into_CString.h"
+
 #define OFFLINE				0
 #define ONLINE				1
 #define UM_SOCK				WM_USER+0x100
@@ -130,6 +138,10 @@ public:
 	CComboBox message_receiver;
 	// 用户密码
 	CEdit private_pwd;
+	// 用于展示成员的视图
+	CListCtrl member_list_view;
+	// 用于展示拉取的文件列表的视图
+	CListCtrl file_list_view;
 };
 
 void InitResourceOfClient(HWND hwnd);

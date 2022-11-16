@@ -1,11 +1,13 @@
-#pragma once
 #include <stdio.h>
+#include "pch.h"
+uint32_t calculate_chllenge_sum(char *ptr);
+uint32_t crc32_function(unsigned char* data, unsigned short length, int poly);
 
 //https://blog.csdn.net/lickylin/article/details/7857586
 //https://blog.csdn.net/weixin_39824033/article/details/117164482
 
-uint32_t crc32_table[256];
-uint16_t crc64_table[256];
+//uint32_t crc32_table[256];
+//uint16_t crc64_table[256];
 /*
 void make_crc(uint32_t sum)
 {
@@ -64,20 +66,3 @@ uint64_t crc_64(uint32_t crc, unsigned char* buf, uint32_t size)
 		crc = (crc >> 8) ^ (crc64_table[crc ^ *buf++]);
 	return crc;
 }*/
-uint32_t crc32_function(unsigned char* data, unsigned short length, int poly)
-{
-	unsigned char i;
-	int crc = 0xffffffff;  // Initial value
-	while (length--)
-	{
-		crc ^= (int)(*data++) << 24;// crc ^=(uint32_t)(*data)<<24; data++;
-		for (i = 0; i < 8; ++i)
-		{
-			if (crc & 0x80000000)
-				crc = (crc << 1) ^ poly;
-			else
-				crc <<= 1;
-		}
-	}
-	return crc;
-}
