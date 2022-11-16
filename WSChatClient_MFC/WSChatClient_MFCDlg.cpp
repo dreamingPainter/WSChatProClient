@@ -1249,8 +1249,8 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnBinGetMsg(WPARAM wParam, LPARAM lParam)
 		transmmit_channel.sin_family = AF_INET;
 		transmmit_channel.sin_port = port;
 		transmmit_channel.sin_addr = server.sin_addr;
-		//if (connect(s_t, (sockaddr*)&transmmit_channel, sizeof(transmmit_channel)) == SOCKET_ERROR)
-		//	MessageBox(L"Receive preparation failed");
+		if (connect(s_t, (sockaddr*)&transmmit_channel, sizeof(transmmit_channel)) == SOCKET_ERROR)
+			MessageBox(L"Receive preparation failed");
 
 	}
 	free(ptr_header);
