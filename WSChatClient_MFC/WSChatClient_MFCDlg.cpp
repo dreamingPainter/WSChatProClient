@@ -443,6 +443,7 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton1()
 	char buf_byte;
 	CStringA long_data;
 	char bh,bl;
+	CString x;
 
 
 	UpdateData(TRUE);
@@ -491,20 +492,27 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton1()
 			send_data.Empty();
 
 		//高地址整数高位，低地址整数低位
+		char send_data_C[256],*ptr;
+		int i = 0;
 		buf_byte = 0x01;//type
-		send_data = buf_byte;//Add Packet Header
+		send_data_C[i++] = buf_byte;//Add Packet Header
 		msg_len = username_local.GetLength();
 		len = 1 + 4 + msg_len;//msg_l|msg_len_l|data_l
-		bh = HIBYTE(len);
-		bl = LOBYTE(len);
-		buf_byte = 0x01;//msg_type
+		send_data_C[i++] = HIBYTE(len);
+		send_data_C[i++] = LOBYTE(len);
+		buf_byte = 0x00;//msg_type
 		long_data = username_local;
-		send_data = send_data + bh + bl + buf_byte + long_data;//MAKEWORD(b1,bn)
-		if (sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
+		send_data_C[i++] = buf_byte;
+		
+		ptr = (char*)long_data.GetBuffer();
+		strcpy(&send_data_C[i], ptr);
+
+		if (sendto(s_u, send_data_C, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
 		}
 	//}
+		long_data.ReleaseBuffer();
 	UpdateData(FALSE);
 	
 }
@@ -572,7 +580,7 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton2()
 	if (server_ip.IsBlank())
 	{
 		server_ip.SetAddress(127, 0, 0, 1);
-		server_port.SetWindowTextW(L"55555");
+		server_port.SetWindowTextW(L"6666");
 		server_ip.EnableWindow(FALSE);
 		server_port.EnableWindow(FALSE);
 	}
@@ -1127,6 +1135,11 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnBinAckMsg(WPARAM wParam, LPARAM lParam)
 	pos = input_text.ReverseFind('\\');
 	filename = input_text.Right(input_text.GetLength() - pos + 1);//文件名
 
+	buf_byte = *(ptr + 11);
+	if (buf_byte == 0x00)
+	{
+		MessageBox(_T("不可上传"));
+	}
 
 	//锁定窗口，减少bug和代码量
 	file_path.EnableWindow(FALSE);
