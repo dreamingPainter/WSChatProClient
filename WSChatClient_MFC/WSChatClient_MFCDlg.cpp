@@ -497,17 +497,23 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton1()
 		buf_byte = 0x01;//type
 		send_data_C[i++] = buf_byte;//Add Packet Header
 		msg_len = username_local.GetLength();
-		len = 1 + 4 + msg_len;//msg_l|msg_len_l|data_l
+		
+		len = 2 + msg_len;//type lB|len 2B|msg 1B|1B
 		send_data_C[i++] = HIBYTE(len);
 		send_data_C[i++] = LOBYTE(len);
 		buf_byte = 0x00;//msg_type
-		long_data = username_local;
+
+		uint8_t msg_len_s = msg_len;
 		send_data_C[i++] = buf_byte;
-		
+		send_data_C[i++] = msg_len_s;
+		//send_data_C[i++] = HIBYTE(msg_len);
+		//send_data_C[i++] = LOBYTE(msg_len);
+
+		long_data = username_local;
 		ptr = (char*)long_data.GetBuffer();
 		strcpy(&send_data_C[i], ptr);
 
-		if (sendto(s_u, send_data_C, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
+		if (sendto(s_u, send_data_C, sizeof(send_data_C), 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
 		}
