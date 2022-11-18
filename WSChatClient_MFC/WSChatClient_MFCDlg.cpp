@@ -12,6 +12,7 @@ using namespace std;
 ofstream logfile;
 SOCKET s_u;
 SOCKET s_t;
+struct sockaddr_in server, client, transmmit_channel;
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
@@ -169,6 +170,15 @@ BOOL CWSChatClientMFCDlg::OnInitDialog()
 	file_list_view.InsertColumn(0, _T("文件ID"), LVCFMT_LEFT, 100);
 	file_list_view.InsertColumn(1, _T("文件名"), LVCFMT_LEFT, 226);
 	state_of_client.EnableWindow(FALSE);
+	last_group_id = 0;
+	user_id = 0;
+	send_data.Empty();
+	/*char byte_buf = 0x01;
+	send_data = byte_buf;
+	send_data = bit16_data_into_buf(0x0203, send_data);
+
+	strcpy(send_buf,send_data);*/
+
 
 
 	logfile.open("log.txt", ios::out | ios::ate | ios::trunc);
@@ -270,7 +280,7 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 	int s,addr_len;
 	unsigned int type;
 	HWND hwnd;
-	hwnd = FindWindowA("CWSChatClientMFCDlg", NULL);
+	hwnd = FindWindowA(NULL, "MFC_WSChatClient");
 
 	switch (message)
 	{
@@ -295,13 +305,14 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 				addr_len = sizeof(server);
 				retval = recvfrom(s_u, recv_buf, sizeof(recv_buf), 0, (sockaddr*)&server, &addr_len);
 				type = recv_buf[0] & 0x01;
-				ptr = (char*)malloc(strlen(recv_buf) + 1);
+				ptr = (char*)malloc(sizeof(recv_buf) + 1);
 				strcpy(ptr,recv_buf);
+			
 				//用Postmsg需要解决data如何传递的问题（一堆buf），用SendMSG需要考虑阻塞的问题，考虑用指针
 				//注意释放
 				switch (type) {
 				case TYPE_LOGIN:
-					PostMessage(LOGIN_MSG,NULL,(LPARAM)(void*)&*ptr);
+					SendMessage(LOGIN_MSG,NULL,(LPARAM)(void*)ptr);
 					break;
 				case TYPE_MSG_TXT:
 					PostMessage(TXT_MSG,NULL, (LPARAM)(void*)&*ptr);
@@ -403,13 +414,13 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton7()
 	buf_byte = 0x02;
 	send_data = buf_byte;
 	//0xFFFF 2B len
-	bit16_data_into_buf(len, &send_data);
+	//bit16_data_into_buf(len, &send_data);
 	//0xFFFFFFFF 4B fromid
-	bit32_data_into_buf(toID, &send_data);
+	//bit32_data_into_buf(toID, &send_data);
 	//4B toid
-	bit32_data_into_buf(toID,&send_data);
+	//bit32_data_into_buf(toID,&send_data);
 	//2B msg_len
-	bit16_data_into_buf(msg_len, &send_data);
+	//bit16_data_into_buf(msg_len, &send_data);
 
 	send_data = send_data + input_txt_A;
 	if (sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
@@ -475,6 +486,8 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton1()
 		MessageBox(_T("未填写服务器端口号"));
 		return;
 	}
+
+	
 
 	server.sin_family = AF_INET;
 	server_ip.GetAddress(server.sin_addr.S_un.S_un_b.s_b1, server.sin_addr.S_un.S_un_b.s_b2,
@@ -637,9 +650,9 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton4()
 		buf_byte = 0x05;//type
 		send_data = buf_byte;//Add Packet Header
 		len = 4 ;//type|len|data(group_id)
-		bit16_data_into_buf(len, &send_data);
+		//bit16_data_into_buf(len, &send_data);
 		group_id_uint = atoi(CStringA(group_id));
-		bit32_data_into_buf(group_id_uint, &send_data);
+		//bit32_data_into_buf(group_id_uint, &send_data);
 
 		sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server));
 
@@ -978,6 +991,9 @@ void InitResourceOfClient(HWND hwnd) {
 		logfile << "_LINE_:Init error" << endl;
 		MessageBox(hwnd, _T("sock TCP socket() error"),L"client",MB_OK);
 	}
+	client.sin_family = AF_INET;
+	client.sin_port = htons(0x1234);
+	client.sin_addr.S_un.S_addr = INADDR_ANY;
 	WSAAsyncSelect(s_u, hwnd, UM_SOCK, FD_READ);
 	WSAAsyncSelect(s_t, hwnd, UM_SOCK, FD_READ);
 
@@ -1039,12 +1055,18 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnLoginMsg(WPARAM wParam, LPARAM lParam)
 {
 	char* ptr_header, * ptr, buf_byte;
 	unsigned char msg_type;
-	uint32_t sum32, crc32_value;
+	uint32_t sum32,crc32_value,buf_crc;
+	uint16_t len;
 	CStringA user_key;
 	CString input_text;
 	unsigned char buf[50];
 
-	ptr_header = (char*)(void*)lParam;
+	
+	int i = 0;
+	char* ptr_s;
+	ptr_header = recv_buf;
+
+	//ptr_header = (char*)(void*)lParam;
 	ptr = ptr_header;
 	ptr += 3;
 	msg_type = *(ptr);
@@ -1054,22 +1076,38 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnLoginMsg(WPARAM wParam, LPARAM lParam)
 	case 0x00://no such user
 		MessageBox(L"no such user");
 		break;
-	case 0x01://challenge,又忘记了
-		sum32 = calculate_chllenge_sum(ptr);
+	case 0x01://challenge type 1B|len 2B|msg 1B|N 1B|bits|numbers 
+		sum32 = calculate_chllenge_sum(ptr)|0x00000001;
 		private_pwd.GetWindowText(input_text);
-		memcpy(buf, input_text.GetBuffer(input_text.GetLength()), input_text.GetLength());
+		user_key = input_text;
+		strcpy((char*)buf,user_key);
 		crc32_value = crc32_function(buf, input_text.GetLength(), sum32);
 
-		send_data.Empty();
 		//0x01 LOGIN 1B
-		buf_byte = 0x01;
-		//len 2B
-		bit16_data_into_buf(0x03, &send_data);
+		memset(send_buf, 0, sizeof(send_buf));
+		send_buf[i++] = 0x01;
+		//len 2B = 5
+		len = 1 + 4;
+		send_buf[i++] = HIBYTE(len);
+		send_buf[i++] = LOBYTE(len);
 		//msg_type
-		bit16_data_into_buf(0x01, &send_data);
+		send_buf[i++] = 0x01;
 		//32 crc
-		bit32_data_into_buf(crc32_value, &send_data);
-		if (sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
+		crc32_value = htonl(crc32_value);
+		ptr = send_buf;
+		*((uint32_t*)(ptr + sizeof(unsigned char)*4)) = htonl(crc32_value);
+		/*for (int count = 1; count < 4; count++)
+		{
+			buf_crc = crc32_value;
+			buf_crc = buf_crc >> (32 - count * 8);
+			buf_byte = buf_crc;
+			send_buf[i++] = buf_byte;
+		}
+		send_buf[i++] = crc32_value;*/
+		//bit32_data_into_buf(crc32_value,ptr_s);
+
+		
+		if (sendto(s_u, send_buf, sizeof(send_buf), 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
 		}
@@ -1084,7 +1122,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnLoginMsg(WPARAM wParam, LPARAM lParam)
 	default:
 		break;
 	}
-	free(ptr_header);
+	//free(ptr_header);
 	return 0;
 }
 

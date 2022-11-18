@@ -44,12 +44,11 @@ class CWSChatClientMFCDlg : public CDialogEx
 // 构造
 public:
 	CWSChatClientMFCDlg(CWnd* pParent = nullptr);	// 标准构造函数
-	struct sockaddr_in server,transmmit_channel;
 	uint64_t retval ;
 	int user_state ;
 	CStringA send_data;
 	uint32_t last_group_id,user_id;
-	char recv_buf[1024];
+	char recv_buf[1024],send_buf[1024];
 	uint64_t crc64_of_file;
 // 对话框数据
 #ifdef AFX_DESIGN_TIME

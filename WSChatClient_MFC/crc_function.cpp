@@ -1,6 +1,6 @@
 #include "crc_function.h"
 #include "pch.h"
-uint32_t crc32_function(unsigned char* data, unsigned short length, int poly)
+uint32_t crc32_function(unsigned char* data, unsigned short length,unsigned int poly)
 {
 	unsigned char i;
 	int crc = 0xffffffff;  // Initial value
@@ -21,23 +21,27 @@ uint32_t calculate_chllenge_sum(char *ptr)//传入的ptr指向N
 {
 	unsigned char N;
 	char *challenge_value_pos;
-	uint32_t sum,bitset_byte_num,value_32;
-	uint16_t value_16;
+	uint32_t sum,bitset_byte_num;
+	//value_32
+	//uint16_t value_16;
+	int value_32;
+	int value_16;
 
 	N = *ptr;
+	sum = 0;
 	bitset_byte_num = (N / 8) + ((N % 8) ? 1 : 0);
 	challenge_value_pos = ptr + bitset_byte_num + 1;
 
 	for (int count = 0; count < N; count++)
 	{	//对于第i个数，其对应的置位在第几个字节的第几位
-		unsigned char byte_buf = *(ptr + count / 8 + ((count % 8) ? 1 : 0));
-		if (byte_buf&(0x01<<(count%8)))//4字节
+		unsigned char byte_buf = *(ptr + 1 + count / 8);
+		if (byte_buf&(0x80>>(count%8)))//4字节
 		{
 			value_32 = *(uint32_t*)challenge_value_pos;
 			sum += ntohl(value_32);
 			challenge_value_pos += 4;
 		}
-		else {//2字节
+		else{//2字节
 			value_16 = *(uint16_t*)challenge_value_pos;
 			sum += ntohl(value_16);
 			challenge_value_pos += 2;
