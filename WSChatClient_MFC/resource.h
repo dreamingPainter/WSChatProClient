@@ -44,9 +44,6 @@
 #define IDC_EDIT2                       1036
 #define STATEBOX                        1036
 
-
-
-
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
