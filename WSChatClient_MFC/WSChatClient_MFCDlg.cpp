@@ -172,10 +172,13 @@ BOOL CWSChatClientMFCDlg::OnInitDialog()
 
 	//宽400 高142 member_list_view
 	//宽326 高326 file_list_view
+	//消息接收对象初始化
+	message_receiver.InsertString(0, L"Server");
+	//文件接收对象初始化
+	file_receiver.InsertString(0, L"Server");
 	//成员列表初始化
 	member_list_view.InsertColumn(0, _T("成员ID"), LVCFMT_LEFT, 100);
 	member_list_view.InsertColumn(1, _T("成员昵称"), LVCFMT_LEFT, 300);
-	message_receiver.InsertString(0, L"Server");
 	member_list_view.InsertItem(0, L"4294967295");
 	member_list_view.SetItemText(0, 1, L"Server");
 	//文件列表初始化
@@ -346,7 +349,7 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 				//注意释放
 				switch (type) {
 				case TYPE_LOGIN:
-					SendMessage(LOGIN_MSG,NULL,(LPARAM)(void*)ptr);
+					SendMessage(LOGIN_MSG,NULL,(LPARAM)(void*)&*ptr);
 					break;
 				case TYPE_MSG_TXT:
 					SendMessage(TXT_MSG,NULL, (LPARAM)(void*)&*ptr);
@@ -428,7 +431,7 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 void CWSChatClientMFCDlg::OnBnClickedIdcButton7()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	uint32_t fromID, toID, ID_buf;
+	uint32_t fromID, toID;
 	uint16_t len,msg_len;
 	char buf_byte,flag;
 	CStringA input_txt_A,recv_id_A;
@@ -738,7 +741,6 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton3()
 	CString input_text;
 	int port{};
 	short int len;
-	unsigned int msg_len;
 	char buf_byte;
 	CStringA long_data;
 
@@ -793,7 +795,6 @@ void CWSChatClientMFCDlg::OnBnClickedFilelistIdcButton7()
 	CString input_text;
 	int port{};
 	short int len;
-	unsigned int msg_len;
 	char buf_byte;
 	CStringA long_data;
 	char bh, bl;
@@ -873,7 +874,7 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton5()
 	CString filename,file_recver,find_name;
 	CStringA recv_id_A,filename_A;
 	short int len;
-	char name_buf[128],flag;
+	char flag;
 	FILE *fp;
 
 	//初始化
@@ -971,9 +972,9 @@ void CWSChatClientMFCDlg::OnEnChangeIdcEdit2()
 void CWSChatClientMFCDlg::OnBnClickedIdcButton6()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	CStringA filename;
-	uint64_t crc64_id_ul;
-	CString crc64_id;
+	CStringA filename,crc64_id_A;
+	uint64_t crc64_id_ul = 0;
+	CString crc64_id_C;
 	short int len;
 
 	if (s_u == 0 || user_state == 0)
@@ -984,8 +985,10 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton6()
 	else
 	{
 		//读取文件名/传输对象
-		file_nameOrId.GetWindowText(crc64_id);
-		crc64_id.Format(L"%lu", crc64_id_ul);
+		char* ptr;
+		file_nameOrId.GetWindowText(crc64_id_C);
+		crc64_id_A = crc64_id_C;
+		crc64_id_ul = strtoll(crc64_id_A, &ptr, 10);
 		// 创建上传请求报文
 		if (!send_data.IsEmpty())
 			send_data.Empty();
@@ -1096,10 +1099,8 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnLoginMsg(WPARAM wParam, LPARAM lParam)
 
 	
 	int i = 0;
-	char* ptr_s;
-	ptr_header = recv_buf;
 
-	//ptr_header = (char*)(void*)lParam;
+	ptr_header = (char*)(void*)lParam;
 	ptr = ptr_header;
 	ptr += 3;
 	msg_type = *(ptr);
@@ -1167,7 +1168,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnTxtMsg(WPARAM wParam, LPARAM lParam)
 	ptr_header = (char*)(void*)lParam;
 	ptr = ptr_header;
 	uint32_t fromID, toID;
-	uint16_t len,msg_len;
+	uint16_t msg_len;
 	CString show_txt;
 
 	ptr = ptr + 3;
@@ -1279,19 +1280,20 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpJoinMsg(WPARAM wParam, LPARAM lParam)
 	char* ptr_header, * ptr;
 	ptr_header = (char*)(void*)lParam;
 	ptr = ptr_header;
-	unsigned char group_id[4], msg_type;
+	unsigned char msg_type;
 	int count;
+	uint32_t group_id;
 
 	ptr += 3;
-	for (count = 0; count < 4; count++)
-	{
-		last_group_id += *ptr;
-		ptr++;
-	}
+	group_id = *(uint32_t*)ptr;
+
 	msg_type = *ptr;
 	if (msg_type == 0x00)
 	{
-		//ugroup_id.SetWindowTextW(last_group_id);
+		last_group_id = group_id;
+		CString group_id_C;
+		group_id_C.Format(_T("%ul"),last_group_id);
+		ugroup_id.SetWindowTextW(group_id_C);
 		ugroup_id.EnableWindow(FALSE);
 	}
 	else {
@@ -1307,7 +1309,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpQuitMsg(WPARAM wParam, LPARAM lParam)
 	char* ptr_header, * ptr;
 	ptr_header = (char*)(void*)lParam;
 	ptr = ptr_header;
-	unsigned char group_id[4], msg_type;
+	unsigned char msg_type;
 	int count;
 
 	ptr += 3;
