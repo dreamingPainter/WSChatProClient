@@ -21,6 +21,7 @@
 #define BIN_GET_MSG			WM_USER+0x205
 #define GRP_LIST_MSG		WM_USER+0x206
 #define LOGIN_CHALLENGE_ACK WM_USER+0x207
+#define SEND_BUF_SIZE		1024
 
 enum PacketEnum
 {
@@ -108,7 +109,7 @@ public:
 	afx_msg void OnBnClickedIdcButton5();
 	afx_msg void OnCbnSelchangeFileRecvCombo4();
 	afx_msg void OnEnChangeIdcEdit2();
-	CEdit file_path;
+//	CEdit file_path;
 	// 文件接收的对象
 	CComboBox file_receiver;
 	afx_msg void OnBnClickedIdcButton6();
@@ -143,6 +144,8 @@ public:
 	CListCtrl file_list_view;
 	afx_msg void OnCbnSelchangeChatRecvCombo3();
 	afx_msg void OnEnChangeStatebox();
+	// 文件的路径或者是crc64ID
+	CEdit file_PathOrID;
 };
 
 void InitResourceOfClient(HWND hwnd);
