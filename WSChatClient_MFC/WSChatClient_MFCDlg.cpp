@@ -61,7 +61,7 @@ CWSChatClientMFCDlg::CWSChatClientMFCDlg(CWnd* pParent /*=nullptr*/)
 	s_u = 0;//UDP socket
 	s_t = 0;//TCP socket
 	retval = 0;
-	user_state = OFFLINE;//0不在线
+	user_state = ONLINE;//0不在线
 	//ugroup_id.SetWindowText(0);
 	send_data = _T("");
 	user_id = 0;
@@ -169,18 +169,23 @@ BOOL CWSChatClientMFCDlg::OnInitDialog()
 
 	//宽400 高142 member_list_view
 	//宽326 高326 file_list_view
-
+	//成员列表初始化
 	member_list_view.InsertColumn(0, _T("成员ID"), LVCFMT_LEFT, 100);
 	member_list_view.InsertColumn(1, _T("成员昵称"), LVCFMT_LEFT, 300);
+	message_receiver.InsertString(0, L"Server");
+	member_list_view.InsertItem(0, L"0");
+	member_list_view.SetItemText(0, 1, L"Server");
+	//文件列表初始化
 	file_list_view.InsertColumn(0, _T("文件ID"), LVCFMT_LEFT, 100);
 	file_list_view.InsertColumn(1, _T("文件名"), LVCFMT_LEFT, 226);
-	/*群成员列表初始化测试*/
-	uint32_t id=0,i=0;
+
+	/*群成员列表初始化测试
+	uint32_t id=0,i=1;
 	char name[256],id_c[128];
 	FILE* fp = fopen("member_list.txt", "r");
 	while (!feof(fp))
 	{
-		fscanf(fp, "%d\t\t%s", &id, name);
+		fscanf(fp, "%d\t%s", &id, name);
 		CString name_C,id_C;
 		CStringA name_CA = name;
 		CStringA id_CA;
@@ -191,12 +196,13 @@ BOOL CWSChatClientMFCDlg::OnInitDialog()
 		message_receiver.InsertString(i,name_C);
 		member_list_view.InsertItem(i, id_C);
 		member_list_view.SetItemText(i, 1, name_C);
-	}
+	}*/
 
 	state_of_client.EnableWindow(FALSE);
-	last_group_id = 0;
+	last_group_id = 8;
 	user_id = 2;
 	send_data.Empty();
+	memset(send_buf, 0, 1024);
 	/*char byte_buf = 0x01;
 	send_data = byte_buf;
 	send_data = bit16_data_into_buf(0x0203, send_data);
@@ -329,9 +335,9 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 				addr_len = sizeof(server);
 				retval = recvfrom(s_u, recv_buf, sizeof(recv_buf), 0, (sockaddr*)&server, &addr_len);
 				type = recv_buf[0] & 0xFF;
-				uint16_t len = ntohs(*((uint16_t*)&recv_buf[1]));
-				ptr = (char*)malloc(len + 2);
-				memcpy(ptr,recv_buf,len+2);
+				//uint16_t len = ntohs(*((uint16_t*)&recv_buf[1]));
+				ptr = (char*)malloc(retval);
+				memcpy(ptr,recv_buf,retval);
 			
 				//用Postmsg需要解决data如何传递的问题（一堆buf），用SendMSG需要考虑阻塞的问题，考虑用指针
 				//注意释放
@@ -355,7 +361,7 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 					PostMessage(BIN_GET_MSG, NULL, (LPARAM)(void*)&*ptr);
 					break;
 				case TYPE_GRP_LST:
-					PostMessage(GRP_LIST_MSG, NULL, (LPARAM)(void*)&*ptr);
+					SendMessage(GRP_LIST_MSG, NULL, (LPARAM)(void*)&*ptr);
 					break;
 				default:
 					free(ptr);
@@ -802,15 +808,10 @@ void CWSChatClientMFCDlg::OnBnClickedFilelistIdcButton7()
 void CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	CString group_id;
-
-	CString input_text;
-	int port{};
 	short int len;
-	unsigned int msg_len;
-	char buf_byte;
-	CStringA long_data;
-	char bh, bl;
+	char buf_byte,*p;
+	memset(send_buf, 0, sizeof(send_buf));
+	p = send_buf;
 	if (s_u == 0 || user_state == 0)
 	{
 		MessageBox(L"未连接,无法获取好友列表");
@@ -822,21 +823,17 @@ void CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6()
 		if (!send_data.IsEmpty())
 			send_data.Empty();
 
-		buf_byte = 0x08;//type
-		send_data = buf_byte;//Add Packet Header
-		len = 4;//type|len|data(group_id)
-		bh = HIBYTE(len);
-		bl = LOBYTE(len);
-		long_data = group_id;
-		send_data = send_data + bh + bl + long_data;//MAKEWORD(b1,bn)
+		*p = 0x08;//type
+		*(uint16_t*)(p+1) = htons(4);//type|len|data(group_id)
+		*(uint32_t*)(p + 3) = htons(last_group_id);
 
 		// 发送报文
-		len = send_data.GetLength();
-		if (send(s_u, send_data, len, 0) == SOCKET_ERROR)
+		len = 7;
+		if (sendto(s_u, send_buf, len, 0,(sockaddr*)&server,sizeof(sockaddr)) == SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
 		}
-		send_data.Empty();
+		memset(send_buf, 0, 1024);
 
 	}
 
@@ -1367,7 +1364,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 	uint16_t item_num,pos;
 	CString item;
 
-	line = 1;
+	line = 0;
 	ptr_header = (char*)(void*)lParam;
 	ptr = ptr_header;
 	ptr += 3;
@@ -1378,7 +1375,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 	group_id = ntohl(*(uint32_t*)ptr);
 	//item_len
 	ptr += 4;
-	item_num = *(uint16_t*)ptr;
+	item_num = ntohs(*(uint16_t*)ptr);
 	ptr += 2;
 	//report：https://blog.csdn.net/to_Baidu/article/details/61428276
 	if (group_id == last_group_id)
@@ -1393,12 +1390,14 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 				ptr += 8;
 				uint8_t len = *(uint8_t*)ptr;
 				ptr++;
-				for (int count = 0; count < len; count++)
+				int count = 0;
+				for (count = 0; count < len; count++)
 				{
 					buf[count] = *ptr;
 					ptr++;
 				}
-				fp << member_id << "\t\t" << buf << endl;
+				buf[count] = 0;
+				fp << member_id << "\t" << buf << endl;
 				memset(buf, 0, sizeof(buf));
 			}
 			fp.close();
@@ -1410,7 +1409,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 				item = buf;
 				pos = item.ReverseFind('\t');
 				CString s_member_id = item.Left(pos);
-				CString s_member_name = item.Right(pos);
+				CString s_member_name = item.Right(item.GetLength()-pos);
 				member_list_view.InsertItem(line,s_member_id);
 				member_list_view.SetItemText(line, 1, s_member_name);
 				memset(buf, 0, 256);
@@ -1431,7 +1430,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 					buf[count] = *ptr;
 					ptr++;
 				}
-				fp << file_id << "\t\t" << buf << endl;
+				fp << file_id << "\t" << buf << endl;
 				memset(buf, 0, sizeof(buf));
 			}
 			file_list_view.DeleteAllItems();
@@ -1439,12 +1438,12 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 
 			file_list_view.DeleteAllItems();
 			fp_in.open("file_list.txt", ios::in);
-			while (fp_in.getline(buf, 26))
+			while (fp_in.getline(buf, 200))
 			{
 				item = buf;
 				pos = item.ReverseFind('\t');
 				CString s_file_id = item.Left(pos);
-				CString s_file_name = item.Right(pos);
+				CString s_file_name = item.Right(item.Find('\t'));
 				file_list_view.InsertItem(line,s_file_id);
 				file_list_view.SetItemText(line, 1, s_file_name);
 				memset(buf, 0, 256);
@@ -1457,7 +1456,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 		}
 	}
 	else MessageBox(L"Get wrong List!");
-	free(ptr);
+	free(ptr_header);
 	return 0;
 }
 

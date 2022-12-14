@@ -1,3 +1,2 @@
-11111		hello
-2222		happy
-333		goodday
+11111	hello
+333	goodday

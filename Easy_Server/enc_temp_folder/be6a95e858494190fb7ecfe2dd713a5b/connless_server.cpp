@@ -81,8 +81,8 @@ void member_list(int len) {
 	p += 9 + y->len;
 	y = (item*)p;
 	y->id = htonll(uint64_t(333));
-	memcpy(username, "goodday",7);
-	y->len = 7;
+	strcpy_s(username, "goodday");
+	y->len = strlen(username);
 	x->len += 9 + y->len;
 	x->len = htons(x->len);
 	memcpy(y->ptr, username,strlen(username));
