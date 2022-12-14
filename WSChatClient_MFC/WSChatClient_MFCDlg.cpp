@@ -789,7 +789,7 @@ void CWSChatClientMFCDlg::OnBnClickedFilelistIdcButton7()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	CString group_id;
-
+	char *p = send_buf;
 	CString input_text;
 	int port{};
 	short int len;
