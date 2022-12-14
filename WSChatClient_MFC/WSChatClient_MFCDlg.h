@@ -142,6 +142,7 @@ public:
 	// 用于展示拉取的文件列表的视图
 	CListCtrl file_list_view;
 	afx_msg void OnCbnSelchangeChatRecvCombo3();
+	afx_msg void OnEnChangeStatebox();
 };
 
 void InitResourceOfClient(HWND hwnd);

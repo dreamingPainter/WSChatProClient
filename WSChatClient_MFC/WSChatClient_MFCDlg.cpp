@@ -128,6 +128,7 @@ ON_MESSAGE(GRP_LIST_MSG, &CWSChatClientMFCDlg::OnGrpListMsg)
 ON_MESSAGE(LOGIN_CHALLENGE_ACK, &CWSChatClientMFCDlg::OnLoginChallengeAck)
 ON_EN_CHANGE(IDC_EDIT7, &CWSChatClientMFCDlg::OnEnChangeEdit7)
 ON_CBN_SELCHANGE(SELECT_CHAT_RECV_COMBO3, &CWSChatClientMFCDlg::OnCbnSelchangeChatRecvCombo3)
+ON_EN_CHANGE(STATEBOX, &CWSChatClientMFCDlg::OnEnChangeStatebox)
 END_MESSAGE_MAP()
 
 
@@ -173,7 +174,7 @@ BOOL CWSChatClientMFCDlg::OnInitDialog()
 	member_list_view.InsertColumn(0, _T("成员ID"), LVCFMT_LEFT, 100);
 	member_list_view.InsertColumn(1, _T("成员昵称"), LVCFMT_LEFT, 300);
 	message_receiver.InsertString(0, L"Server");
-	member_list_view.InsertItem(0, L"0");
+	member_list_view.InsertItem(0, L"4294967295");
 	member_list_view.SetItemText(0, 1, L"Server");
 	//文件列表初始化
 	file_list_view.InsertColumn(0, _T("文件ID"), LVCFMT_LEFT, 100);
@@ -429,13 +430,28 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton7()
 	uint16_t len,msg_len;
 	char buf_byte;
 	CStringA input_txt_A,recv_id_A;
-	CString input_txt,recv_id;
+	CString input_txt,recv_name,find_name;
 	send_data.Empty();
 	//获取发送对象
+	toID = 0;
 	fromID = user_id;
-	message_receiver.GetLBText(message_receiver.GetCurSel(), recv_id);
-	recv_id_A = recv_id;
-	toID = atoi(recv_id_A);
+	if (message_receiver.GetCurSel() < 0)
+		MessageBox(L"你要给谁发消息？");
+	else
+		message_receiver.GetLBText(message_receiver.GetCurSel(), recv_name);
+
+
+	for (int id_index=0; id_index < member_list_view.GetItemCount(); id_index++)
+	{
+		
+		find_name = member_list_view.GetItemText(id_index, 1);
+		if (find_name == recv_name)
+		{
+			char* ptr;
+			recv_id_A = member_list_view.GetItemText(id_index, 0);
+			toID = strtoul(recv_id_A,&ptr,10);
+		}
+	}
 	//获取数据和数据长度
 	sendt_txt_buf.GetWindowText(input_txt);
 	input_txt_A = input_txt;
@@ -462,7 +478,7 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton7()
 	show_txt_buf.SetSel(show_txt_buf.GetWindowTextLength(), show_txt_buf.GetWindowTextLengthW());
 	show_txt_buf.ReplaceSel(input_txt);
 	show_txt_buf.LineScroll(show_txt_buf.GetLineCount());
-	sendt_txt_buf.Clear();
+	sendt_txt_buf.SetWindowTextW(L"");
 }
 
 
@@ -1120,7 +1136,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnLoginMsg(WPARAM wParam, LPARAM lParam)
 		//32 crc
 		crc32_value = htonl(crc32_value);
 		ptr = send_buf;
-		*((uint32_t*)(ptr + sizeof(unsigned char)*4)) = htonl(crc32_value);
+		*((uint32_t*)(ptr + sizeof(unsigned char)*4)) = crc32_value;
 		/*for (int count = 1; count < 4; count++)
 		{
 			buf_crc = crc32_value;
@@ -1137,11 +1153,12 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnLoginMsg(WPARAM wParam, LPARAM lParam)
 			logfile << "_LINE_:send error" << endl;
 		}
 		break;
-	case 0x02:
+	case 0x03:
 		user_id = *(uint32_t*)ptr;
 		user_id = ntohl(user_id);
+		state_of_client.SetWindowText(L"已上线");
 		break;
-	case 0x03:
+	case 0x02:
 		MessageBox(L"login failed");
 		break;
 	default:
@@ -1177,7 +1194,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnTxtMsg(WPARAM wParam, LPARAM lParam)
 	LVFINDINFO info;
 	
 	CString friend_id;
-	friend_id.Format(_T("%d"), fromID);
+	friend_id.Format(_T("%lu"), fromID);
 	info.flags = LVFI_PARTIAL | LVFI_STRING;
 	info.psz = friend_id;
 	int id_index = member_list_view.FindItem(&info);
@@ -1475,4 +1492,15 @@ void CWSChatClientMFCDlg::OnEnChangeEdit7()
 void CWSChatClientMFCDlg::OnCbnSelchangeChatRecvCombo3()
 {
 	// TODO: 在此添加控件通知处理程序代码
+}
+
+
+void CWSChatClientMFCDlg::OnEnChangeStatebox()
+{
+	// TODO:  如果该控件是 RICHEDIT 控件，它将不
+	// 发送此通知，除非重写 CDialogEx::OnInitDialog()
+	// 函数并调用 CRichEditCtrl().SetEventMask()，
+	// 同时将 ENM_CHANGE 标志“或”运算到掩码中。
+
+	// TODO:  在此添加控件通知处理程序代码
 }

@@ -35,7 +35,7 @@ uint32_t calculate_chllenge_sum(char *ptr)//传入的ptr指向N
 	for (int count = 0; count < N; count++)
 	{	//对于第i个数，其对应的置位在第几个字节的第几位
 		unsigned char byte_buf = *(ptr + 1 + count / 8);
-		if (byte_buf&(0x80>>(count%8)))//4字节
+		if (byte_buf&(0x80>>(7-count%8)))//4字节
 		{
 			value_32 = *(uint32_t*)challenge_value_pos;
 			sum += ntohl(value_32);
@@ -43,7 +43,7 @@ uint32_t calculate_chllenge_sum(char *ptr)//传入的ptr指向N
 		}
 		else{//2字节
 			value_16 = *(uint16_t*)challenge_value_pos;
-			sum += ntohl(value_16);
+			sum += ntohs(value_16);
 			challenge_value_pos += 2;
 		}
 	}
