@@ -185,9 +185,11 @@ BOOL CWSChatClientMFCDlg::OnInitDialog()
 	file_list_view.InsertColumn(0, _T("文件ID"), LVCFMT_LEFT, 100);
 	file_list_view.InsertColumn(1, _T("文件名"), LVCFMT_LEFT, 226);
 
-	/*群成员列表初始化测试
-	uint32_t id=0,i=1;
-	char name[256],id_c[128];
+
+	//初始化列表测试
+	uint32_t id = 0, i = 1;
+	char name[256], id_c[128];
+	//群成员列表初始化测试
 	FILE* fp = fopen("member_list.txt", "r");
 	while (!feof(fp))
 	{
@@ -200,9 +202,28 @@ BOOL CWSChatClientMFCDlg::OnInitDialog()
 		id_CA = id_c;
 		id_C = id_CA;
 		message_receiver.InsertString(i,name_C);
+		file_receiver.InsertString(i, name_C);
 		member_list_view.InsertItem(i, id_C);
 		member_list_view.SetItemText(i, 1, name_C);
-	}*/
+		i++;
+	}
+	//文件列表初始化测试
+	FILE* fp_f = fopen("file_list.txt", "r");
+	i = 0;
+	while (!feof(fp_f))
+	{
+		fscanf(fp_f, "%d\t%s", &id, name);
+		CString name_C, id_C;
+		CStringA name_CA = name;
+		CStringA id_CA;
+		name_C = name_CA;
+		_itoa(id, id_c, 10);
+		id_CA = id_c;
+		id_C = id_CA;
+		file_list_view.InsertItem(i, id_C);
+		file_list_view.SetItemText(i, 1, name_C);
+		i++;
+	}
 
 	state_of_client.EnableWindow(FALSE);
 	last_group_id = 0;
@@ -481,7 +502,7 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton7()
 	//2B msg_len
 	*((uint16_t*)&send_buf[11]) = htons(msg_len);
 	strcpy(&send_buf[13], input_txt_A.GetBuffer());
-	if (sendto(s_u, send_buf, len+2, 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
+	if (sendto(s_u, send_buf, len+3, 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
 	{
 		logfile << "_LINE_:send error" << endl;
 	}
@@ -1413,7 +1434,10 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 					ptr++;
 				}
 				buf[count] = 0;
-				fp << member_id << "\t" << buf << endl;
+				if (i + 1 != item_num)
+					fp << member_id << "\t" << buf << endl;
+				else
+					fp << member_id << "\t" << buf;
 				memset(buf, 0, sizeof(buf));
 			}
 			fp.close();
@@ -1448,7 +1472,10 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 					ptr++;
 				}
 				buf[count] = 0;
-				fp << file_id << "\t" << buf << endl;
+				if (i + 1 != item_num)
+					fp << file_id << "\t" << buf << endl;
+				else
+					fp << file_id << "\t" << buf;
 				memset(buf, 0, sizeof(buf));
 			}
 			fp.close();
