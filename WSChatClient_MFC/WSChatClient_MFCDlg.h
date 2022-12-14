@@ -147,6 +147,7 @@ public:
 	// 文件的路径或者是crc64ID
 //	CEdit file_PathOrID;
 	CEdit file_nameOrId;
+	virtual BOOL PreTranslateMessage(MSG* pMsg);
 };
 
 void InitResourceOfClient(HWND hwnd);

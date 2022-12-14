@@ -205,7 +205,7 @@ BOOL CWSChatClientMFCDlg::OnInitDialog()
 	}*/
 
 	state_of_client.EnableWindow(FALSE);
-	last_group_id = 8;
+	last_group_id = 0;
 	user_id = 2;
 	send_data.Empty();
 	memset(send_buf, 0, 1024);
@@ -683,10 +683,8 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton4()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	CString group_id;
-	char buf_byte;
-	CString input_text;
-	int port{};
-	uint32_t group_id_uint;
+	CStringA group_id_A;
+	uint32_t group_id_u;
 	short int len;
 	unsigned int msg_len;
 
@@ -697,34 +695,40 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton4()
 	}
 	else
 	{
-		if (last_group_id != 0)
-			MessageBox(L"已在群,请先退出");
+		char* ptr;
+		ugroup_id.GetWindowText(group_id);
+		group_id_A = group_id;
+		group_id_u = strtol(group_id_A, &ptr, 10);
+		if (last_group_id == group_id_u)
+		{
+			MessageBox(L"已在此群");
+			return;
+		}
+		else if (last_group_id != 0)
+		{
+			MessageBox(L"请先退出当前群聊");
+			return;
+		}
 		
 		// 创建报文
 		if (!send_data.IsEmpty())
 			send_data.Empty();
-		ugroup_id.GetWindowText(group_id);
+		memset(send_buf, 0, SEND_BUF_SIZE);
 
-		if (!send_data.IsEmpty())
-			send_data.Empty();
+		//填充报文
+		*send_buf = 0x05;
+		*(uint16_t*)(send_buf + 1) = htons(4);
 
-		//高地址整数高位，低地址整数低位
-		buf_byte = 0x05;//type
-		send_data = buf_byte;//Add Packet Header
-		len = 4 ;//type|len|data(group_id)
-		//bit16_data_into_buf(len, &send_data);
-		group_id_uint = atoi(CStringA(group_id));
-		//bit32_data_into_buf(group_id_uint, &send_data);
 
-		sendto(s_u, send_data, sizeof(send_data), 0, (sockaddr*)&server, sizeof(server));
+		*(uint32_t*)(send_buf + 3) = htonl(group_id_u);
 
-		// 发送报文
-		len = send_data.GetLength();
-		if (sendto(s_u, send_data, len,0, (sockaddr*)&server,sizeof(server))==SOCKET_ERROR)
+		//发送报文
+		len = 7;
+		if (sendto(s_u, send_buf, len,0, (sockaddr*)&server,sizeof(server))==SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
 		}
-		send_data.Empty();
+		memset(send_buf, 0, SEND_BUF_SIZE);
 	}
 
 
@@ -737,40 +741,42 @@ void CWSChatClientMFCDlg::OnBnClickedGroupIdcButton3()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	CString group_id;
-
-	CString input_text;
-	int port{};
+	CStringA group_id_A;
+	uint32_t group_id_u;
 	short int len;
-	char buf_byte;
-	CStringA long_data;
+	unsigned int msg_len;
 
 	if (s_u == 0 || user_state == 0)
 	{
-		MessageBox(L"未连接,退群失败");
+		MessageBox(L"未连接服务器");
 		return;
 	}
 	else
 	{
-		ugroup_id.GetWindowText(group_id);
+		if (last_group_id == 0)
+		{
+			MessageBox(L"未加入群聊");
+			return;
+		}
 		// 创建报文
 		if (!send_data.IsEmpty())
 			send_data.Empty();
-		
-		//高地址整数高位，低地址整数低位
-		buf_byte = 0x06;//type
-		send_data = buf_byte;//Add Packet Header
-		len = 4;//type|len|data(group_id)
-		
+		memset(send_buf, 0, SEND_BUF_SIZE);
 
-		// 发送报文
-		len = send_data.GetLength();
-		if (sendto(s_u, send_data, len, 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
+		//填充报文
+		*send_buf = 0x06;
+		*(uint16_t*)(send_buf + 1) = htons(4);
+		*(uint32_t*)(send_buf + 3) = htonl(last_group_id);
+
+		//发送报文
+		len = 7;
+		if (sendto(s_u, send_buf, len, 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
 		}
 		send_data.Empty();
-
 	}
+
 }
 
 
@@ -1285,21 +1291,22 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpJoinMsg(WPARAM wParam, LPARAM lParam)
 	uint32_t group_id;
 
 	ptr += 3;
-	group_id = *(uint32_t*)ptr;
+	group_id = ntohl(*(uint32_t*)ptr);
 
-	msg_type = *ptr;
+	msg_type = *(++ptr);
 	if (msg_type == 0x00)
 	{
 		last_group_id = group_id;
 		CString group_id_C;
-		group_id_C.Format(_T("%ul"),last_group_id);
+		group_id_C.Format(_T("%u"),last_group_id);
 		ugroup_id.SetWindowTextW(group_id_C);
 		ugroup_id.EnableWindow(FALSE);
+		MessageBox(L"加群成功");
 	}
 	else {
-		MessageBox(L"Join group Failed");
+		MessageBox(L"加群失败");
 	}
-
+	free(ptr_header);
 	return 0;
 }
 
@@ -1310,24 +1317,22 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpQuitMsg(WPARAM wParam, LPARAM lParam)
 	ptr_header = (char*)(void*)lParam;
 	ptr = ptr_header;
 	unsigned char msg_type;
-	int count;
+	uint32_t group_id;
 
-	ptr += 3;
-	for (count = 0; count < 4; count++)
+	ptr = ptr + 3;
+	group_id = ntohl(*(uint32_t*)ptr);
+	msg_type = *(++ptr);
+	if (msg_type == 0x00&&group_id==last_group_id)
 	{
-		last_group_id += *ptr;
-		ptr++;
-	}
-	msg_type = *ptr;
-	if (msg_type == 0x00)
-	{
-		ugroup_id.Clear();
+		ugroup_id.SetWindowTextW(L"");
 		ugroup_id.EnableWindow(TRUE);
+		MessageBox(L"已退出群聊");
+		last_group_id = 0;
 	}
 	else {
-		MessageBox(L"Quit group Failed");
+		MessageBox(L"退群失败");
 	}
-
+	free(ptr_header);
 	return 0;
 }
 
@@ -1498,4 +1503,16 @@ void CWSChatClientMFCDlg::OnEnChangeStatebox()
 	// 同时将 ENM_CHANGE 标志“或”运算到掩码中。
 
 	// TODO:  在此添加控件通知处理程序代码
+}
+
+//处理错误按键导致程序退出问题
+BOOL CWSChatClientMFCDlg::PreTranslateMessage(MSG* pMsg)
+{
+	// TODO: 在此添加专用代码和/或调用基类
+	if (pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_ESCAPE)
+		return TRUE;
+	if (pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_RETURN)
+		return TRUE;
+	else
+	return CDialogEx::PreTranslateMessage(pMsg);
 }

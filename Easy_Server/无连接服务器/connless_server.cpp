@@ -11,6 +11,14 @@ sockaddr_in remote;
 WSAData wsa;
 
 #pragma pack(1)
+//下载确认
+typedef struct bin_get_ack {
+	char type;
+	uint16_t len;
+	uint64_t crc64;
+	uint16_t port;
+}bin_get_ack_msg;
+//短消息
 typedef struct msg_txt_head {
 	char type;
 	uint16_t len;
@@ -20,6 +28,7 @@ typedef struct msg_txt_head {
 	char buf[4];
 }msg_txt_frame;
 
+//列表消息
 typedef struct group_list_head {
 	char type;
 	uint16_t len;
@@ -28,14 +37,31 @@ typedef struct group_list_head {
 	uint16_t item_num;
 	char ptr[2];
 }group_list_frame;
-
+//列表成员
 typedef struct item {
 	uint64_t id;
 	char len;
 	char ptr[2];
 }item;
 
+//加退群帧
+typedef struct group_in_quit {
+	char type;
+	uint16_t len;
+	uint32_t group_id;
+	char msg_type;
+}group_op_frame;
 #pragma pack()
+
+//上传响应消息
+typedef struct msg_bin_ack_msg{
+	char type;
+	uint16_t len;
+	uint64_t crc64;
+	uint16_t port;
+}msg_bin_ack_msg;
+
+
 
 
 uint64_t htonll(uint64_t val)
@@ -47,7 +73,48 @@ uint64_t ntohll(uint64_t val)
 {
 	return (((uint64_t)ntohl(val)) << 32) + ntohl(val >> 32);
 }
+//下载响应
+void bin_get_ack(int len) {
+	char send_buf[128];
+	bin_get_ack_msg* x = (bin_get_ack_msg*)send_buf;
+	x->type = 0x07;
+	x->len = 10;
+	x->crc64 = 0x1112131415161718;
+	x->port = 0x1234;
+	sendto(s, send_buf, sizeof(send_buf), 0, (sockaddr*)&remote, len);
+}
+//上传响应
+void msg_bin_ack(int len) {
+	char send_buf[128];
+	msg_bin_ack_msg* x = (msg_bin_ack_msg*)send_buf;
+	x->type = 0x04;
+	x->len = 10;
+	x->crc64 = 0x1112131415161718;
+	x->port = 0x1234;
+	sendto(s, send_buf, sizeof(send_buf), 0, (sockaddr*)&remote, len);
+}
 
+//加群
+void join_group_ack(int len){
+	char send_buf[128];
+	group_op_frame* x=(group_op_frame*)send_buf;
+	x->type = 5;
+	x->len = htons(5);
+	x->group_id = htonl(16);
+	x->msg_type = 0;//0成功，1失败
+	sendto(s, send_buf, sizeof(send_buf), 0, (sockaddr*)&remote, len);
+}
+//退群
+void quit_group_ack(int len) {
+	char send_buf[128];
+	group_op_frame* x = (group_op_frame*)send_buf;
+	x->type = 6;
+	x->len = htons(5);
+	x->group_id = htonl(16);
+	x->msg_type = 0;//0成功，1失败
+	sendto(s, send_buf, sizeof(send_buf), 0, (sockaddr*)&remote, len);
+}
+//短消息
 void msg_txt(char *buf,int len) {
 	char send_buf[128] = {0};
 	msg_txt_frame *x = (msg_txt_frame*)send_buf;
@@ -59,7 +126,7 @@ void msg_txt(char *buf,int len) {
 	strcpy_s(x->buf,"hhh");
 	sendto(s, send_buf, sizeof(send_buf), 0, (sockaddr*)&remote, len);
 }
-
+//列表请求响应
 void member_list(int len) {
 	char send_buf[128] = { 0 };
 	char username[50] = { 0 };
@@ -89,6 +156,9 @@ void member_list(int len) {
 	sendto(s, send_buf, sizeof(send_buf), 0, (sockaddr*)&remote, len);
 }
 
+void receive_file(int len) {
+
+}
 int main()
 {
 
@@ -114,11 +184,25 @@ int main()
 		printf("%s\n",buf);
 		len = sizeof(remote);
 
-		if (*buf == 0x02)
+		switch (*buf) {
+		case 0x02://发一个短消息
 			msg_txt(buf, len);
-		else if(*buf == 0x08)
+			break;
+		case 0x03://文件上传响应
+			msg_bin_ack(len);
+		case 0x04://文件接收
+			receive_file(len);
+			break;
+		case 0x05://加群响应
+			join_group_ack(len);
+			break;
+		case 0x06://退群响应
+			quit_group_ack(len);
+			break;
+		case 0x08://好友列表响应
 			member_list(len);
-
+			break;
+		}
 	}
 	closesocket(s);
 	WSACleanup();
