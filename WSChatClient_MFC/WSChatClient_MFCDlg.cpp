@@ -93,7 +93,8 @@ void CWSChatClientMFCDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, PRIVATE_PWD_IDC_EDIT3, private_pwd);
 	DDX_Control(pDX, MEMBER_IDC_LIST2, member_list_view);
 	DDX_Control(pDX, FILE_IDC_LIST1, file_list_view);
-	DDX_Control(pDX, FILEPATH_IDC_EDIT2, file_PathOrID);
+	//  DDX_Control(pDX, FILEPATH_IDC_EDIT2, file_PathOrID);
+	DDX_Control(pDX, FILEPATH_IDC_EDIT2, file_nameOrId);
 }
 
 BEGIN_MESSAGE_MAP(CWSChatClientMFCDlg, CDialogEx)
@@ -429,11 +430,12 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton7()
 	// TODO: 在此添加控件通知处理程序代码
 	uint32_t fromID, toID, ID_buf;
 	uint16_t len,msg_len;
-	char buf_byte;
+	char buf_byte,flag;
 	CStringA input_txt_A,recv_id_A;
 	CString input_txt,recv_name,find_name;
 	send_data.Empty();
 	//获取发送对象
+	flag = 0;
 	toID = 0;
 	fromID = user_id;
 	if (message_receiver.GetCurSel() < 0)
@@ -451,7 +453,13 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton7()
 			char* ptr;
 			recv_id_A = member_list_view.GetItemText(id_index, 0);
 			toID = strtoul(recv_id_A,&ptr,10);
+			flag = 1;
 		}
+	}
+	if (flag == 0)
+	{
+		MessageBox(L"查无此人\n可尝试刷新列表");
+		return;
 	}
 	//获取数据和数据长度
 	sendt_txt_buf.GetWindowText(input_txt);
@@ -861,63 +869,77 @@ void CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6()
 void CWSChatClientMFCDlg::OnBnClickedIdcButton5()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	int pos;
-	CStringA filename;
-
-	CString input_text;
-	int port{};
+	uint32_t fromID, toID;
+	CString filename,file_recver,find_name;
+	CStringA recv_id_A,filename_A;
 	short int len;
-	char buf_byte;
-	CStringA long_data;
-	char bh, bl;
-	short int file_receiver_id;
+	char name_buf[128],flag;
+	FILE *fp;
 
+	//初始化
 	crc64_of_file = 0;
+	flag = 0;
 
-	if (s_t == 0 || user_state == 0)
+	if (s_u == 0 || user_state == 0)
 	{
 		MessageBox(L"未连接,无法上传文件");
 		return;
 	}
 	else
 	{	
-		//读取文件名/传输对象
-		file_PathOrID.GetWindowText(input_text);
-		pos = input_text.ReverseFind('\\');
-		filename = input_text.Right(input_text.GetLength()-pos+1);//文件名
-		file_receiver.GetWindowText(input_text);
-		long_data = input_text;
-		file_receiver_id = atoi(long_data);//传输对象ID
+		//读文件名
+		file_nameOrId.GetWindowTextW(filename);
+		filename_A = filename;
+		if (fopen(filename_A, "r") == NULL)
+		{
+			MessageBox(L"文件不存在，请检查文件名或者文件位置");
+			return;
+		}
+
+		//获取传输对象ID : 其实可以自己刷新一下
+		if (file_receiver.GetCurSel() < 0)
+			MessageBox(L"你要给谁传文件？");
+		else
+			file_receiver.GetLBText(message_receiver.GetCurSel(), file_recver);
+		for (int id_index = 0; id_index < member_list_view.GetItemCount(); id_index++)
+		{
+			find_name = member_list_view.GetItemText(id_index, 1);
+			if (find_name == file_recver)
+			{
+				char* ptr;
+				recv_id_A = member_list_view.GetItemText(id_index, 0);
+				toID = strtoul(recv_id_A, &ptr, 10);
+				flag = 1;
+			}
+		}
+		if (flag == 0)
+		{
+			MessageBox(L"查无此人，可尝试刷新列表");
+			return ;
+		}
 
 		// 创建上传请求报文
 		if (!send_data.IsEmpty())
 			send_data.Empty();
+		memset(send_buf, 0, SEND_BUF_SIZE);
+		/*填充报文*/
+		fromID = user_id;
+		*send_buf = 0x03;
+		*(uint16_t*)(send_buf + 1) = htons(18);
+		*(uint32_t*)(send_buf + 3) = htonl(fromID);
+		*(uint32_t*)(send_buf + 7) = htonl(toID);
+		*(uint64_t*)(send_buf + 15) = crc64_of_file;
+		*(uint16_t*)(send_buf + 23) = htons(filename.GetLength());
+		strcpy_s(send_buf + 25, filename.GetLength(), filename_A);
+		//CRC64
+		fp = fopen(filename_A, "rb+");
 
-		//高地址整数高位，低地址整数低位
-		buf_byte = 0x03;//type
-		send_data = buf_byte;//Add Packet Header
 
-		/*懒得封装成函数了*/
-		len = 4+4+8+2+filename.GetLength();//type|len|from ID 4B|to ID 4B|crc 64 8B|len 2B|file name|
-		bh = HIBYTE(len);
-		bl = LOBYTE(len);
-		send_data = send_data + bh + bl ;//MAKEWORD(b1,bn)
-		bh = HIBYTE(user_id);
-		bl = LOBYTE(user_id);
-		send_data = send_data + bh + bl;
-		bh = HIBYTE(file_receiver_id);
-		bl = LOBYTE(file_receiver_id);
-		send_data = send_data + bh + bl;
-		/*CRC*/
-		len = filename.GetLength();
-		bh = HIBYTE(len);
-		bl = LOBYTE(len);
-		send_data = send_data + bh + bl + filename;//MAKEWORD(b1,bn)
 
 
 		// 发送报文
-		len = send_data.GetLength();
-		if (sendto(s_u, send_data, len, 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
+		len = 4 + 4 + 8 + 2 + filename.GetLength();
+		if (sendto(s_u, send_buf, len, 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
 		}
@@ -962,7 +984,7 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton6()
 	else
 	{
 		//读取文件名/传输对象
-		file_PathOrID.GetWindowText(crc64_id);
+		file_nameOrId.GetWindowText(crc64_id);
 		crc64_id.Format(L"%lu", crc64_id_ul);
 		// 创建上传请求报文
 		if (!send_data.IsEmpty())
@@ -1199,7 +1221,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnBinAckMsg(WPARAM wParam, LPARAM lParam)
 	CStringA filename, string_crc64, msg_header;
 	CString input_text;
 	//读取文件名/传输对象
-	file_path.GetWindowText(input_text);
+	file_nameOrId.GetWindowText(input_text);
 	pos = input_text.ReverseFind('\\');
 	filename = input_text.Right(input_text.GetLength() - pos + 1);//文件名
 
@@ -1210,7 +1232,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnBinAckMsg(WPARAM wParam, LPARAM lParam)
 	}
 
 	//锁定窗口，减少bug和代码量
-	file_path.EnableWindow(FALSE);
+	file_nameOrId.EnableWindow(FALSE);
 	state_of_client.SetWindowTextW(L"文件上传中，暂时无法进行其他操作");
 	fp = fopen(filename, "r");
 

@@ -145,7 +145,8 @@ public:
 	afx_msg void OnCbnSelchangeChatRecvCombo3();
 	afx_msg void OnEnChangeStatebox();
 	// 文件的路径或者是crc64ID
-	CEdit file_PathOrID;
+//	CEdit file_PathOrID;
+	CEdit file_nameOrId;
 };
 
 void InitResourceOfClient(HWND hwnd);
