@@ -799,18 +799,14 @@ void CWSChatClientMFCDlg::OnBnClickedFilelistIdcButton7()
 		if (!send_data.IsEmpty())
 			send_data.Empty();
 
-		buf_byte = 0x08;//type
-		send_data = buf_byte;//Add Packet Header
-		len = 4;//type|len|data(group_id)
-		bh = HIBYTE(len);
-		bl = LOBYTE(len);
-		long_data = group_id;
-		send_data = send_data + bh + bl + long_data;//MAKEWORD(b1,bn)
-
+		*p = 0x08;//type
+		*(uint16_t*)(p + 1) = htons(5);//type|len|msg_type|data(group_id)
+		*(p + 3) = 0x01;
+		*(uint32_t*)(p + 4) = htons(last_group_id);
 
 		// 发送报文
-		len = send_data.GetLength();
-		if (send(s_u, send_data, len, 0) == SOCKET_ERROR)
+		len = 8;
+		if (sendto(s_u, send_buf, len, 0, (sockaddr*)&server, sizeof(sockaddr)) == SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
 		}
@@ -840,11 +836,12 @@ void CWSChatClientMFCDlg::OnBnClickedFriendlistIdcButton6()
 			send_data.Empty();
 
 		*p = 0x08;//type
-		*(uint16_t*)(p+1) = htons(4);//type|len|data(group_id)
-		*(uint32_t*)(p + 3) = htons(last_group_id);
+		*(uint16_t*)(p + 1) = htons(5);//type|len|msg_type|data(group_id)
+		*(p + 3) = 0x00;
+		*(uint32_t*)(p + 4) = htons(last_group_id);
 
 		// 发送报文
-		len = 7;
+		len = 8;
 		if (sendto(s_u, send_buf, len, 0,(sockaddr*)&server,sizeof(sockaddr)) == SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
@@ -1164,7 +1161,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnLoginMsg(WPARAM wParam, LPARAM lParam)
 	default:
 		break;
 	}
-	//free(ptr_header);
+	free(ptr_header);
 	return 0;
 }
 
@@ -1277,7 +1274,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnBinAckMsg(WPARAM wParam, LPARAM lParam)
 	} while (retval < sizeof(sendbuf));
 
 
-
+	free(ptr_header);
 	return 0;
 }
 
