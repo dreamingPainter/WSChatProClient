@@ -27,13 +27,15 @@ uint32_t crc32_function(unsigned char* data, unsigned short length,unsigned int 
  * Xorout:  0x00000000000000
  * Note:
  *****************************************************************************/
-unsigned long long crc64(unsigned char* data, unsigned short length, unsigned int poly)
+unsigned long long crc64_function(FILE *fp,unsigned short length, unsigned long long poly)
 {
-	unsigned char i;
+	unsigned char i;   
 	unsigned long long crc = 0xffffffffffffffff;  // Initial value
+	unsigned char data;
 	while (length--)
 	{
-		crc ^= (unsigned long long)(*data++) << 56;// crc ^=(uint32_t)(*data)<<24; data++;
+		data = fgetc(fp);
+		crc ^= (unsigned long long)(data) << 56;// crc ^=(uint32_t)(*data)<<24; data++;
 		for (i = 0; i < 8; ++i)
 		{
 			if (crc & 0x8000000000000000)

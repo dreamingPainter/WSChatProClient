@@ -13,7 +13,7 @@ using namespace std;
 ofstream logfile;
 SOCKET s_u;
 SOCKET s_t;
-struct sockaddr_in server, client, transmmit_channel;
+struct sockaddr_in server, client, server_tcp, transmmit_channel;
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
@@ -79,7 +79,6 @@ void CWSChatClientMFCDlg::DoDataExchange(CDataExchange* pDX)
 	//  DDX_Text(pDX, PUBLIC_PWD_IDC_EDIT2, public_key_value);
 	DDX_Text(pDX, USERNAME_IDC_EDIT1, username_local);
 	DDX_Control(pDX, USER_IP_IDC_IPADDRESS1, user_ip_local);
-	DDX_Control(pDX, PUBLIC_PWD_IDC_EDIT2, public_key_value);
 	DDX_Control(pDX, SERVER_IP_IDC_IPADDRESS2, server_ip);
 	DDX_Control(pDX, SERVER_PORT_IDC_EDIT4, server_port);
 	//  DDX_Text(pDX, GROUPID_IDC_EDIT3, ugroup_id);
@@ -166,7 +165,6 @@ BOOL CWSChatClientMFCDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
-	public_key_value.SetPasswordChar('*');
 	private_pwd.SetPasswordChar('*');
 
 
@@ -376,7 +374,7 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 					SendMessage(TXT_MSG,NULL, (LPARAM)(void*)&*ptr);
 					break;
 				case TYPE_MSG_BIN_ACK:
-					PostMessage(BIN_ACK_MSG, NULL, (LPARAM)(void*)&*ptr);
+					SendMessage(BIN_ACK_MSG, NULL, (LPARAM)(void*)&*ptr);
 					break;
 				case TYPE_GRP_JOIN:
 					PostMessage(GRP_JOIN_MSG,NULL, (LPARAM)(void*)&*ptr);
@@ -541,10 +539,10 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton1()
 
 
 	UpdateData(TRUE);
-	public_key_value.GetWindowText(input_text);
+	private_pwd.GetWindowText(input_text);
 	if (input_text.IsEmpty())
 	{
-		MessageBox(_T("公钥未填写"));
+		MessageBox(_T("密码未填写"));
 		return;
 	}
 	if (username_local.IsEmpty())
@@ -928,7 +926,7 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton5()
 		if (file_receiver.GetCurSel() < 0)
 			MessageBox(L"你要给谁传文件？");
 		else
-			file_receiver.GetLBText(message_receiver.GetCurSel(), file_recver);
+			file_receiver.GetLBText(file_receiver.GetCurSel(), file_recver);
 		for (int id_index = 0; id_index < member_list_view.GetItemCount(); id_index++)
 		{
 			find_name = member_list_view.GetItemText(id_index, 1);
@@ -938,6 +936,7 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton5()
 				recv_id_A = member_list_view.GetItemText(id_index, 0);
 				toID = strtoul(recv_id_A, &ptr, 10);
 				flag = 1;
+				break;
 			}
 		}
 		if (flag == 0)
@@ -953,21 +952,26 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton5()
 		/*填充报文*/
 		fromID = user_id;
 		*send_buf = 0x03;
-		*(uint16_t*)(send_buf + 1) = htons(18);
 		*(uint32_t*)(send_buf + 3) = htonl(fromID);
 		*(uint32_t*)(send_buf + 7) = htonl(toID);
 		*(uint64_t*)(send_buf + 15) = crc64_of_file;
 		*(uint16_t*)(send_buf + 23) = htons(filename.GetLength());
-		strcpy_s(send_buf + 25, filename.GetLength(), filename_A);
+		char filename_c[256];
+		//strcpy_s(filename_c,filename_A.GetLength(),filename_A);
+		memcpy(send_buf + 25, filename_A.GetBuffer(), filename_A.GetLength());
+		filename_A.ReleaseBuffer();
 		//CRC64
 		fp = fopen(filename_A, "rb+");
-
-
-
+		fseek(fp, 0, SEEK_END);
+		uint16_t length_of_file = ftell(fp);
+		fseek(fp, 0, SEEK_SET);
+		crc64_of_file = crc64_function(fp, length_of_file, 0x4C11DB74C11DB7);
+		*(uint64_t*)(send_buf + 15) = htonll(crc64_of_file);
 
 		// 发送报文
 		len = 4 + 4 + 8 + 2 + filename.GetLength();
-		if (sendto(s_u, send_buf, len, 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
+		*(uint16_t*)(send_buf + 1) = htons(len);
+		if (sendto(s_u, send_buf, len+3, 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
 		}
@@ -1235,67 +1239,64 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnTxtMsg(WPARAM wParam, LPARAM lParam)
 }
 
 
-/*收到ACK后，开始进行文件传输即上传*/
+/*收到上传文件ACK后，开始进行文件传输即上传*/
 afx_msg LRESULT CWSChatClientMFCDlg::OnBinAckMsg(WPARAM wParam, LPARAM lParam)
 {
 
-	char* ptr_header, * ptr, sendbuf[1024], buf_byte;
+	char* ptr_header, * ptr;
 	ptr_header = (char*)(void*)lParam;
 	ptr = ptr_header;
 	FILE* fp;
-	int pos;
-	uint16_t len;
-	uint64_t retval_file_len;
-	CStringA filename, string_crc64, msg_header;
+	uint16_t port_server;
+	uint64_t retval_file_len,crc_64;
+	CStringA filename;
 	CString input_text;
+
 	//读取文件名/传输对象
 	file_nameOrId.GetWindowText(input_text);
-	pos = input_text.ReverseFind('\\');
-	filename = input_text.Right(input_text.GetLength() - pos + 1);//文件名
+	filename = input_text;//文件名
 
-	buf_byte = *(ptr + 11);
-	if (buf_byte == 0x00)
+	crc_64 = ntohll(*(uint64_t*)(ptr_header+3));
+	if (crc_64 != crc64_of_file)
 	{
-		MessageBox(_T("不可上传"));
+		MessageBox(L"服务器返回值错误");
+		return 0;
 	}
+	port_server = ntohs(*(uint16_t*)(ptr_header + 11));
 
+	if (port_server == 0x00)
+	{
+		MessageBox(_T("不可发送"));
+		return 0;
+	}
+	server_tcp.sin_addr = server.sin_addr;
+	server_tcp.sin_port = htons(port_server);
+	server_tcp.sin_family = AF_INET;
+	if (connect(s_t, (sockaddr*)&server_tcp, sizeof(server_tcp)) == SOCKET_ERROR)
+	{
+		retval = WSAGetLastError();
+		if (retval == 10035)
+			goto normal;
+		MessageBox(L"文件传输失败，无法连接到服务器");
+		return 0;
+	}
+normal:
 	//锁定窗口，减少bug和代码量
 	file_nameOrId.EnableWindow(FALSE);
-	state_of_client.SetWindowTextW(L"文件上传中，暂时无法进行其他操作");
-	fp = fopen(filename, "r");
+	state_of_client.SetWindowTextW(L"文件发送中，暂时无法进行其他操作");
+	fp = fopen(filename, "rb+");
 
 	//添加最外层头部
-	send_data.Empty();
-	buf_byte = 0x04;
-	send_data = buf_byte;
-	for (int i = 0; i < 8; i++)//crc64
-	{
-		buf_byte = crc64_of_file | 0x00;
-		crc64_of_file >> 8;
-		msg_header = msg_header + buf_byte;
-	}
+	memset(send_buf, 0, sizeof(send_buf));
+	*(uint64_t*)send_buf = htonll(crc64_of_file);
 	//其实可以对文件的状态进行管理，每次判断状态（不想写了，堵着吧先
+	char file_buffer[4096];
 	do {
-		retval_file_len = fread(sendbuf, sizeof(char), sizeof(sendbuf), fp);
-		retval = retval_file_len;
-		for (int i = 0; i < 8; i++)//数据长度
-		{
-			buf_byte = retval_file_len | 0x00;
-			retval_file_len = retval_file_len >> 8;
-			msg_header = msg_header + buf_byte;
-		};
-		len = retval + 8;
-		for (int i = 0; i < 8; i++)//数据长度
-		{
-			buf_byte = retval_file_len | 0x00;
-			retval_file_len = retval_file_len >> 8;
-			send_data = send_data + buf_byte;
-		};
-		sendbuf[strlen(sendbuf) + 1] = '\0';
-		send_data = send_data + msg_header + sendbuf;
-		//send(s_t, send_data, strlen(send_data) + 1, 0);
-	} while (retval < sizeof(sendbuf));
-
+		retval_file_len = fread(file_buffer, sizeof(char), sizeof(file_buffer), fp);
+		*(uint64_t*)(send_buf + 8) = retval_file_len;
+		send(s_t, send_buf, 8+retval_file_len, 0);
+	} while (!feof(fp));
+	fclose(fp);
 
 	free(ptr_header);
 	return 0;

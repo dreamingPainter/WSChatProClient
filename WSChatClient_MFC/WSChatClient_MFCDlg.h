@@ -90,7 +90,7 @@ public:
 	afx_msg void OnBnClickedIpIdcRadio1();
 	afx_msg void OnEnChangePwdIdcEdit2();
 	// 公共密钥类
-	CEdit public_key_value;
+//	CEdit public_key_value;
 	afx_msg void OnIpnFieldchangedIpIdcIpaddress2(NMHDR* pNMHDR, LRESULT* pResult);
 	// FTP服务器的IP地址
 	CIPAddressCtrl server_ip;

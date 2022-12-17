@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include "pch.h"
+#include <iostream>
 uint32_t calculate_chllenge_sum(char *ptr);
 uint32_t crc32_function(unsigned char* data, unsigned short length, unsigned int poly);
-
+unsigned long long crc64_function(FILE* fp,unsigned short length, unsigned long long poly);
 //https://blog.csdn.net/lickylin/article/details/7857586
 //https://blog.csdn.net/weixin_39824033/article/details/117164482
 
