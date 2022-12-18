@@ -94,6 +94,7 @@ void CWSChatClientMFCDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, FILE_IDC_LIST1, file_list_view);
 	//  DDX_Control(pDX, FILEPATH_IDC_EDIT2, file_PathOrID);
 	DDX_Control(pDX, FILEPATH_IDC_EDIT2, file_nameOrId);
+	DDX_Control(pDX, IDC_EDIT1, file_state);
 }
 
 BEGIN_MESSAGE_MAP(CWSChatClientMFCDlg, CDialogEx)
@@ -130,6 +131,7 @@ ON_MESSAGE(LOGIN_CHALLENGE_ACK, &CWSChatClientMFCDlg::OnLoginChallengeAck)
 ON_EN_CHANGE(IDC_EDIT7, &CWSChatClientMFCDlg::OnEnChangeEdit7)
 ON_CBN_SELCHANGE(SELECT_CHAT_RECV_COMBO3, &CWSChatClientMFCDlg::OnCbnSelchangeChatRecvCombo3)
 ON_EN_CHANGE(STATEBOX, &CWSChatClientMFCDlg::OnEnChangeStatebox)
+ON_MESSAGE(BIN_ARRIVE_MSG, &CWSChatClientMFCDlg::OnBinArriveMsg)
 END_MESSAGE_MAP()
 
 
@@ -372,6 +374,9 @@ LRESULT CWSChatClientMFCDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lPar
 					break;
 				case TYPE_MSG_TXT:
 					SendMessage(TXT_MSG,NULL, (LPARAM)(void*)&*ptr);
+					break;
+				case TYPE_MSG_BIN:
+					SendMessage(BIN_ARRIVE_MSG, NULL, (LPARAM)(void*)&*ptr);
 					break;
 				case TYPE_MSG_BIN_ACK:
 					SendMessage(BIN_ACK_MSG, NULL, (LPARAM)(void*)&*ptr);
@@ -1003,10 +1008,13 @@ void CWSChatClientMFCDlg::OnEnChangeIdcEdit2()
 void CWSChatClientMFCDlg::OnBnClickedIdcButton6()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	CStringA filename,crc64_id_A;
+	CStringA filename_A,crc64_id_A;
 	uint64_t crc64_id_ul = 0;
-	CString crc64_id_C;
-	short int len;
+	CString filename_C,find_name;
+	short int len,flag;
+
+	flag = 0;
+	len = 0;
 
 	if (s_u == 0 || user_state == 0)
 	{
@@ -1017,22 +1025,38 @@ void CWSChatClientMFCDlg::OnBnClickedIdcButton6()
 	{
 		//读取文件名/传输对象
 		char* ptr;
-		file_nameOrId.GetWindowText(crc64_id_C);
-		crc64_id_A = crc64_id_C;
-		crc64_id_ul = strtoll(crc64_id_A, &ptr, 10);
-		// 创建上传请求报文
+		file_nameOrId.GetWindowText(filename_C);
+		filename_A = filename_C;
+		for (int id_index = 0; id_index < file_list_view.GetItemCount(); id_index++)
+		{
+			find_name = file_list_view.GetItemText(id_index, 1);
+			if (find_name == filename_C)
+			{
+				char* ptr;
+				crc64_id_A = file_list_view.GetItemText(id_index, 0);
+				crc64_id_ul = strtoull(crc64_id_A, &ptr, 10);
+				flag = 1;
+				break;
+			}
+		}
+		if (!flag)
+		{
+			MessageBox(L"无此文件可下载，请检查文件名或者刷新文件列表");
+			return;
+		}
+		// 创建下载请求报文
 		if (!send_data.IsEmpty())
 			send_data.Empty();
 		memset(send_buf, 0, SEND_BUF_SIZE);
 		
 		//填充报文
 		*send_buf = 0x07;
-		*(uint16_t*)(send_buf + 1) = 8;
+		*(uint16_t*)(send_buf + 1) = htons(8);
 		*(uint64_t*)(send_buf + 3) = htonll(crc64_id_ul);
 
 		// 发送报文
 		len = 11;
-		if (sendto(s_u, send_data, len, 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
+		if (sendto(s_u, send_buf, len, 0, (sockaddr*)&server, sizeof(server)) == SOCKET_ERROR)
 		{
 			logfile << "_LINE_:send error" << endl;
 		}
@@ -1543,4 +1567,30 @@ BOOL CWSChatClientMFCDlg::PreTranslateMessage(MSG* pMsg)
 		return TRUE;
 	else
 	return CDialogEx::PreTranslateMessage(pMsg);
+}
+
+//收到有下载文件的通知
+afx_msg LRESULT CWSChatClientMFCDlg::OnBinArriveMsg(WPARAM wParam, LPARAM lParam)
+{
+	char* ptr_header = (char*)(void*)lParam;
+	char name[256];
+	CString filename_C;
+	CStringA filename_A;
+	uint16_t len;
+	uint32_t fromID,toID;
+	uint64_t crc64;
+
+	
+	fromID = ntohl(*(uint32_t*)(ptr_header+3));
+	toID = ntohl(*(uint32_t*)(ptr_header + 7));
+	recv_crc64_of_file = ntohll(*(uint64_t*)(ptr_header + 11));
+	len = ntohs(*(uint16_t*)(ptr_header + 19));
+	strcpy_s(name, len, ptr_header + 21);
+	name[len] = 0x00;
+	filename_A = name;
+	filename_C = filename_A;
+	file_nameOrId.SetWindowText(filename_C);
+	file_nameOrId.EnableWindow(FALSE);
+
+	return 0;
 }

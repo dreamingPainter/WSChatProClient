@@ -21,6 +21,7 @@
 #define BIN_GET_MSG			WM_USER+0x205
 #define GRP_LIST_MSG		WM_USER+0x206
 #define LOGIN_CHALLENGE_ACK WM_USER+0x207
+#define BIN_ARRIVE_MSG		WM_USER+0x208
 #define SEND_BUF_SIZE		1024
 
 enum PacketEnum
@@ -50,7 +51,7 @@ public:
 	CStringA send_data;
 	uint32_t last_group_id,user_id;
 	char recv_buf[1024],send_buf[1024];
-	uint64_t crc64_of_file;
+	uint64_t crc64_of_file,recv_crc64_of_file;
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_WSCHATCLIENT_MFC_DIALOG };
@@ -148,6 +149,11 @@ public:
 //	CEdit file_PathOrID;
 	CEdit file_nameOrId;
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
+protected:
+	afx_msg LRESULT OnBinArriveMsg(WPARAM wParam, LPARAM lParam);
+public:
+	// 文件收发状态提醒
+	CEdit file_state;
 };
 
 void InitResourceOfClient(HWND hwnd);
