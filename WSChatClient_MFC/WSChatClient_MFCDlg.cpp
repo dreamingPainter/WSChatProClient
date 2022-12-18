@@ -1099,7 +1099,7 @@ void ReleaseClientResource(HWND hwnd) {
 	return;
 }
 
-
+//
 afx_msg LRESULT CWSChatClientMFCDlg::OnLoginChallengeAck(WPARAM wParam, LPARAM lParam)
 {
 	// TODO: 在此添加控件通知处理程序代码
@@ -1490,7 +1490,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnBinGetMsg(WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
-//收到群/成员的列表响应
+//收到群成员列表响应
 afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 {
 	//type 1B|len 2B|msg_type 1B|group id 4B|itemlen 2B|id of item 8B|len 1B|username/filename
@@ -1527,8 +1527,8 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 			{	
 				uint64_t member_id = ntohll(*(uint64_t*)ptr);
 				ptr += 8;
-				uint8_t len = *(uint8_t*)ptr;
-				ptr++;
+				uint16_t len = ntohs(*(uint16_t*)ptr);
+				ptr += 2;
 				int count = 0;
 				for (count = 0; count < len; count++)
 				{
@@ -1551,7 +1551,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 				item = buf;
 				pos = item.ReverseFind('\t');
 				CString s_member_id = item.Left(pos);
-				CString s_member_name = item.Right(item.GetLength()-pos);
+				CString s_member_name = item.Right(item.GetLength()-pos-1);
 				member_list_view.InsertItem(line,s_member_id);
 				member_list_view.SetItemText(line, 1, s_member_name);
 				memset(buf, 0, 256);
@@ -1565,8 +1565,8 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 			{
 				uint64_t file_id = ntohll(*(uint64_t*)ptr);
 				ptr += 8;
-				uint8_t len = *(uint8_t*)ptr;
-				ptr++;
+				uint16_t len = ntohs(*(uint16_t*)ptr);
+				ptr += 2;
 				int count = 0;
 				for (count = 0; count < len; count++)
 				{
@@ -1592,6 +1592,45 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpListMsg(WPARAM wParam, LPARAM lParam)
 				CString s_file_name = item.Right(item.GetLength()-pos);
 				file_list_view.InsertItem(line,s_file_id);
 				file_list_view.SetItemText(line, 1, s_file_name);
+				memset(buf, 0, 256);
+				line++;
+			}
+			fp_in.close();
+			break;
+		//在线用户列表获取
+		case 0x02:
+			fp.open("member_list.txt", ios::trunc | ios::out | ios::in);
+			for (int i = 0; i < item_num; i++)
+			{
+				uint64_t member_id = ntohll(*(uint64_t*)ptr);
+				ptr += 8;
+				uint16_t len = ntohs(*(uint16_t*)ptr);
+				ptr += 2;
+				int count = 0;
+				for (count = 0; count < len; count++)
+				{
+					buf[count] = *ptr;
+					ptr++;
+				}
+				buf[count] = 0;
+				if (i + 1 != item_num)
+					fp << member_id << "\t" << buf << endl;
+				else
+					fp << member_id << "\t" << buf;
+				memset(buf, 0, sizeof(buf));
+			}
+			fp.close();
+
+			member_list_view.DeleteAllItems();
+			fp_in.open("member_list.txt", ios::in);
+			while (fp_in.getline(buf, 26))
+			{
+				item = buf;
+				pos = item.ReverseFind('\t');
+				CString s_member_id = item.Left(pos);
+				CString s_member_name = item.Right(item.GetLength() - pos - 1);
+				member_list_view.InsertItem(line, s_member_id);
+				member_list_view.SetItemText(line, 1, s_member_name);
 				memset(buf, 0, 256);
 				line++;
 			}
