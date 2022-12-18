@@ -9,6 +9,7 @@
 #include "pch.h"
 #include "framework.h"
 #include "int_put_into_CString.h"
+#include <thread>
 
 #define OFFLINE				0
 #define ONLINE				1
@@ -37,6 +38,7 @@ enum PacketEnum
 	TYPE_GRP_LST
 };
 
+
 #pragma once
 
 
@@ -46,8 +48,8 @@ class CWSChatClientMFCDlg : public CDialogEx
 // 构造
 public:
 	CWSChatClientMFCDlg(CWnd* pParent = nullptr);	// 标准构造函数
-	uint64_t retval ;
-	int user_state ;
+	uint64_t retval;
+	int user_state;
 	CStringA send_data;
 	uint32_t last_group_id,user_id;
 	char recv_buf[1024],send_buf[1024];
@@ -155,6 +157,13 @@ public:
 	// 文件收发状态提醒
 	CEdit file_state;
 };
-
+#pragma pack(1)
+typedef struct recv_file_info {
+	SOCKET sock = 0;
+	FILE* fp = NULL;
+	uint64_t crc64 = 0;
+	char filename[256] = { 0 };
+}recv_file_info;
+#pragma pack()
 void InitResourceOfClient(HWND hwnd);
 void ReleaseClientResource(HWND hwnd);

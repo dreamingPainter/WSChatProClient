@@ -1336,6 +1336,7 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpJoinMsg(WPARAM wParam, LPARAM lParam)
 	int count;
 	uint32_t group_id;
 
+
 	ptr += 3;
 	group_id = ntohl(*(uint32_t*)ptr);
 
@@ -1382,31 +1383,107 @@ afx_msg LRESULT CWSChatClientMFCDlg::OnGrpQuitMsg(WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
+DWORD ReceiveFile(LPVOID lpParam) {
+	recv_file_info* ptr = (recv_file_info*)lpParam;
+	int retval;
+	char buf[4096];
+	retval = connect(s_t, (sockaddr*)&server_tcp, sizeof(server_tcp));
+	if (retval != SOCKET_ERROR)
+	{
+		ptr->fp = fopen(ptr->filename, "wb+");
+		while (!feof(ptr->fp))
+		{
+			retval = recv(s_t, buf, sizeof(buf), 0);
+			if (retval == 0)
+			{
+				shutdown(s_t, SD_BOTH);
+				return -1;
+			}
+			else if (retval < 0)
+			{
+				closesocket(s_t);
+				return -1;
+			}
+			else {
+				uint16_t len = ntohs(*(uint16_t*)(buf + 8));
+				uint64_t crc64 = ntohll(*(uint64_t*)buf);
+				if(crc64==ptr->crc64)
+					fwrite(buf, sizeof(char), retval, ptr->fp);
+			}
+		}
+	}
+	shutdown(s_t, SD_RECEIVE);
+	fclose(ptr->fp);
+	ptr->crc64 = 0;
+	return 0;
+}
+
 /*收到下载文件的消息*/
 afx_msg LRESULT CWSChatClientMFCDlg::OnBinGetMsg(WPARAM wParam, LPARAM lParam)
 {	//CRC64 8B|port 2B|
 	char* ptr_header, * ptr;
 	ptr_header = (char*)(void*)lParam;
 	ptr = ptr_header;
-	ptr += 3;
 	uint64_t crc64;
 	uint16_t port;
-	crc64 = 0x0000000000000000;//8 byte 16F
-	for (int count = 0; count < 8; count++)
+	CString filename_C;
+	CString filename_A;
+	FILE* fp;
+	recv_file_info hparam;
+	DWORD threadID;
+	
+	crc64 = ntohll(*(uint64_t*)(ptr_header+3));
+	port = ntohs(*(uint16_t*)(ptr + 11));
+	if (crc64 != recv_crc64_of_file)
 	{
-		crc64 = (crc64 | (*ptr)) << 8;
-		ptr++;
+		MessageBox(L"文件标识符不一致");
+		free(ptr_header);
+		return 0;
 	}
-	port = 0x00000000 | (*ptr);
-	port = (port << 8) | *(++ptr);
 	if (port == 0)
-		MessageBox(L"Get file failed");
+	{
+		MessageBox(L"下载文件请求失败");
+		free(ptr_header);
+		return 0;
+	}
 	else {
-		transmmit_channel.sin_family = AF_INET;
-		transmmit_channel.sin_port = port;
-		transmmit_channel.sin_addr = server.sin_addr;
-		if (connect(s_t, (sockaddr*)&transmmit_channel, sizeof(transmmit_channel)) == SOCKET_ERROR)
-			MessageBox(L"Receive preparation failed");
+		server_tcp.sin_addr = server.sin_addr;
+		server_tcp.sin_port = htons(port);
+		server_tcp.sin_family = AF_INET;
+		if (connect(s_t, (sockaddr*)&server_tcp, sizeof(server_tcp)) == SOCKET_ERROR)
+		{
+			retval = WSAGetLastError();
+			if (retval == 10035)
+				goto normal;
+			MessageBox(L"文件传输失败，无法连接到服务器");
+			free(ptr_header);
+			return 0;
+		}
+	normal:
+		//锁定窗口，可以少写点
+		file_nameOrId.EnableWindow(FALSE);
+		file_state.SetWindowTextW(L"等待文件下载");
+		file_nameOrId.GetWindowText(filename_C);
+		filename_A = filename_C;
+		memcpy(hparam.filename, filename_A.GetBuffer(), int(filename_A.GetLength()));
+		filename_A.ReleaseBuffer();
+		
+		//接收
+		HANDLE recvThread;
+		DWORD recvThreadCode;
+		hparam.sock = s_t;
+		hparam.crc64 = recv_crc64_of_file;
+		hparam.fp = fopen(hparam.filename, "wb+");
+		
+		if (ReceiveFile(&hparam) == -1)
+		{
+			file_state.SetWindowTextW(L"下载失败");
+			file_nameOrId.EnableWindow(FALSE);
+			free(ptr_header);
+			return 0;
+		}
+		else
+			file_state.SetWindowTextW(L"下载成功");
 
 	}
 	free(ptr_header);
